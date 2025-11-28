@@ -1,0 +1,484 @@
+/* eslint-disable no-undef */ 
+import React, { useState, useEffect, useCallback } from 'react';
+
+// Firebase Imports
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+
+// --- Global Variables for Canvas Environment (MUST BE USED) ---
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : null;
+// --- End Global Variables ---
+
+
+// Define App Pages
+const PAGES = {
+  ALLERGIES: 'allergies',
+  CAMERA: 'camera',
+  LOADING: 'loading',
+  RESULT: 'result',
+};
+
+// Common Allergens List
+const ALLERGEN_OPTIONS = [
+  '우유 (Milk)', '땅콩 (Peanuts)', '밀 (Wheat)', '계란 (Egg)',
+  '대두 (Soy)', '견과류 (Tree Nuts)', '새우 (Shrimp)', '게 (Crab)',
+  '복숭아 (Peach)', '토마토 (Tomato)'
+];
+
+/**
+ * ResultDisplay Component: Displays the final scan result (Safe, Caution, Danger)
+ * @param {object} props - Component props
+ * @param {object} props.result - The scan result object { status: 'SAFE'|'CAUTION'|'DANGER', message: string, detail: array }
+ * @param {function} props.onRestart - Function to navigate back to the camera screen
+ */
+const ResultDisplay = ({ result, onRestart }) => {
+  const { status, message, detail } = result;
+
+  const colorMap = {
+    SAFE: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-500', icon: '✅' },
+    CAUTION: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-500', icon: '⚠️' },
+    DANGER: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-500', icon: '❌' },
+  };
+
+  const { bg, text, border, icon } = colorMap[status] || colorMap.SAFE;
+
+  return (
+    <div className="flex flex-col items-center justify-center p-6 space-y-6">
+      <div className={`p-8 rounded-full ${bg} border-4 ${border} shadow-xl transform transition duration-500 hover:scale-105`}>
+        <div className="text-6xl">{icon}</div>
+      </div>
+      <h1 className={`text-3xl font-extrabold ${text} text-center`}>
+        {status === 'SAFE' && '안전 (Safe)'}
+        {status === 'CAUTION' && '주의 (Caution)'}
+        {status === 'DANGER' && '위험 (Danger)'}
+      </h1>
+      <p className="text-xl text-gray-700 text-center max-w-sm">{message}</p>
+
+      {status !== 'SAFE' && detail && (
+        <div className="w-full max-w-md p-4 bg-white rounded-lg shadow-inner border border-gray-200">
+          <h2 className="text-lg font-semibold mb-2 text-gray-800">검출된 알레르기 성분:</h2>
+          <ul className="list-disc list-inside space-y-1 text-gray-600">
+            {detail.map((item, index) => (
+              <li key={index} className="flex items-start">
+                <span className="text-red-500 font-bold mr-2">•</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <button
+        onClick={onRestart}
+        className="mt-8 w-full max-w-sm py-3 px-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition duration-150 transform hover:scale-[1.02]"
+      >
+        새로운 성분표 촬영
+      </button>
+    </div>
+  );
+};
+
+/**
+ * CameraInput Component: Handles file selection and triggers the API call
+ * @param {object} props - Component props
+ * @param {function} props.onScan - Function to call when a file is selected, taking the file object
+ */
+const CameraInput = ({ onScan }) => {
+  const fileInputRef = React.useRef(null); // Ref 생성
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      onScan(file);
+    }
+  };
+  
+  const triggerFileInput = () => {
+    if (fileInputRef.current) { // Ref가 null인지 확인하는 안전장치 추가
+      fileInputRef.current.click();
+    } else {
+      console.error("File input element is not ready.");
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center p-6 space-y-8 h-full">
+      <h1 className="text-2xl font-bold text-gray-700">📸 성분표 사진 촬영 / 업로드</h1>
+      <p className="text-gray-500 text-center max-w-xs">식품의 성분표가 잘 보이도록 촬영하거나 파일을 선택해 주세요.</p>
+
+      {/* onClick 이벤트가 triggerFileInput 함수를 호출하도록 변경 */}
+      <div
+        onClick={triggerFileInput} 
+        className="w-full max-w-xs cursor-pointer flex flex-col items-center justify-center p-12 border-4 border-dashed border-gray-300 rounded-2xl bg-white hover:bg-gray-50 transition duration-150 shadow-lg"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.867-1.299A2 2 0 0111.07 4h1.861c.42 0 .813.195 1.07.51L15.405 6.11a2 2 0 001.664.89h.93a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span className="text-lg font-semibold text-gray-600">사진 업로드</span>
+        
+        {/* input 태그에 ref={fileInputRef}를 연결하여 DOM 요소를 참조하도록 수정 */}
+        <input
+          ref={fileInputRef} 
+          id="camera-input"
+          type="file"
+          accept="image/*"
+          capture="environment" // For mobile camera access
+          onChange={handleFileChange}
+          className="hidden"
+        />
+      </div>
+
+      <button
+        onClick={() => onScan({ name: 'placeholder.jpg', size: 100 })}
+        className="text-sm text-blue-500 hover:text-blue-700 transition duration-150"
+      >
+        (촬영 기능 시뮬레이션: 즉시 결과 보기)
+      </button>
+    </div>
+  );
+};
+
+/**
+ * AllergySelector Component: Manages user's selected allergies using checkboxes.
+ * @param {object} props - Component props
+ * @param {array} props.selectedAllergies - Current list of selected allergies
+ * @param {function} props.onSelectionChange - Function to call on change
+ * @param {boolean} props.isSaving - Indicates if data is currently being saved
+ */
+const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue, isSaving }) => {
+  const isSelected = (allergen) => selectedAllergies.includes(allergen);
+
+  const handleToggle = (allergen) => {
+    let newSelection;
+    if (isSelected(allergen)) {
+      newSelection = selectedAllergies.filter(a => a !== allergen);
+    } else {
+      newSelection = [...selectedAllergies, allergen];
+    }
+    onSelectionChange(newSelection);
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold text-gray-800">알레르기 정보 설정</h1>
+      <p className="text-gray-600">가지고 계신 알레르기 항목을 모두 선택해 주세요. (언제든지 수정 가능)</p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-gray-50">
+        {ALLERGEN_OPTIONS.map((allergen) => (
+          <div
+            key={allergen}
+            className={`p-3 text-sm font-medium rounded-lg cursor-pointer transition duration-150 shadow-sm
+              ${isSelected(allergen)
+                ? 'bg-red-500 text-white ring-2 ring-red-400'
+                : 'bg-white text-gray-700 hover:bg-red-50'
+              }`}
+            onClick={() => handleToggle(allergen)}
+          >
+            {allergen}
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={onContinue}
+        disabled={isSaving}
+        className={`w-full py-3 px-4 text-white font-bold rounded-xl transition duration-150
+          ${isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 shadow-lg transform hover:scale-[1.01]'}`}
+      >
+        {isSaving ? '저장 중...' : '설정 완료 및 스캔 시작'}
+      </button>
+      <p className="text-xs text-gray-500 text-center">알레르기 정보는 안전 진단을 위해 사용됩니다.</p>
+    </div>
+  );
+};
+
+// Main Application Component
+const App = () => {
+  // State for Firebase
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  // State for App Logic
+  const [currentPage, setCurrentPage] = useState(PAGES.ALLERGIES);
+  const [userAllergies, setUserAllergies] = useState([]);
+  const [scanResult, setScanResult] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // --- Firebase Initialization and Authentication ---
+  useEffect(() => {
+    if (!firebaseConfig) {
+      console.error("Firebase config is missing. Running in simulation mode.");
+      setIsAuthReady(true);
+      return;
+    }
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const firestore = getFirestore(app);
+      const authentication = getAuth(app);
+      setDb(firestore);
+      setAuth(authentication);
+
+      // 1. Authenticate with initial token or anonymously
+      const authenticate = async () => {
+        try {
+          if (initialAuthToken) {
+            await signInWithCustomToken(authentication, initialAuthToken);
+          } else {
+            await signInAnonymously(authentication); // Fallback to anonymous sign-in
+          }
+        } catch (error) {
+          console.error("Firebase Auth failed:", error);
+          await signInAnonymously(authentication); // Fallback to anonymous sign-in
+        }
+      };
+      
+      // 2. Set up Auth State Listener
+      const unsubscribe = onAuthStateChanged(authentication, (user) => {
+        if (user) {
+          setUserId(user.uid);
+          console.log("User authenticated:", user.uid);
+        } else {
+          setUserId(null);
+          console.log("No user authenticated.");
+        }
+        setIsAuthReady(true); // Authentication check is complete
+      });
+
+      authenticate();
+      return () => unsubscribe();
+
+    } catch (error) {
+      console.error("Error initializing Firebase:", error);
+      setIsAuthReady(true); // Still mark as ready even if initialization fails
+    }
+  }, []);
+
+  // --- Firestore: Load User Allergies on Auth Ready ---
+  useEffect(() => {
+    if (!isAuthReady || !db || !userId) return;
+
+    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'allergies', 'current');
+    
+    // onSnapshot listener for real-time updates
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        // Firestore stores array of strings directly, so no JSON.parse needed unless complex data
+        const savedAllergies = data.allergies || [];
+        setUserAllergies(savedAllergies);
+        console.log("Allergies loaded successfully:", savedAllergies);
+      } else {
+        console.log("No existing allergy data found. Using default empty list.");
+      }
+    }, (error) => {
+      console.error("Error fetching allergy data:", error);
+    });
+
+    return () => unsubscribe(); // Cleanup listener
+
+  }, [isAuthReady, db, userId]);
+
+  // --- Firestore: Save User Allergies ---
+  const saveAllergies = useCallback(async (newAllergies) => {
+    // 로컬 환경 감지 (db나 userId가 없을 때)
+    if (!db || !userId) {
+      console.error("Firestore not ready or user not logged in. Cannot save. Proceeding to next screen.");
+      setCurrentPage(PAGES.CAMERA); // **화면 전환 로직을 여기에 삽입합니다.**
+      return;
+    }
+    
+    setIsSaving(true);
+    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'allergies', 'current');
+    
+    try {
+      // Use setDoc to create or overwrite the document
+      await setDoc(docRef, {
+        allergies: newAllergies,
+        updatedAt: new Date().toISOString(),
+      });
+      setUserAllergies(newAllergies); // Update local state on successful save
+      console.log("Allergies saved successfully.");
+      setCurrentPage(PAGES.CAMERA); // Move to the next screen after saving
+    } catch (error) {
+      console.error("Error saving allergy data:", error);
+      alert('알레르기 정보 저장에 실패했습니다. 콘솔을 확인해 주세요.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [db, userId, appId]); // 의존성 배열에 appId를 추가하여 경고를 방지합니다.
+
+  // --- API Simulation Function ---
+  const simulateApiCall = async (file) => {
+    // In a real app, you would use fetch to send the image and allergies to a server.
+    // e.g., const response = await fetch('/api/scan', { method: 'POST', body: formData });
+    
+    // 1. Move to loading state
+    setCurrentPage(PAGES.LOADING);
+
+    // 2. Simulate network delay and processing
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 3. Simulate API Response based on user's allergies
+    const hasCriticalAllergen = userAllergies.some(a => a.includes('땅콩') || a.includes('새우'));
+    const hasCautionAllergen = userAllergies.some(a => a.includes('우유') || a.includes('계란'));
+    
+    let result = {};
+
+    if (hasCriticalAllergen && Math.random() < 0.6) { // 60% chance of 'DANGER' if critical allergen selected
+      result = {
+        status: 'DANGER',
+        message: '🚨 고객님이 선택하신 알레르기 성분 (땅콩 또는 새우)이 성분표에서 직접적으로 검출되었습니다.',
+        detail: ['땅콩 추출물 (Peanut Extract)', '글루텐 (Gluten)'],
+      };
+    } else if (hasCautionAllergen && Math.random() < 0.8) { // 80% chance of 'CAUTION' if caution allergen selected
+      result = {
+        status: 'CAUTION',
+        message: '⚠️ 알레르기 유발 가능 성분 또는 교차 오염 위험이 있는 성분이 확인되었습니다. 주의하세요.',
+        detail: ['유청단백 (Whey Protein)', '난황액 (Egg Yolk Liquid)'],
+      };
+    } else {
+      result = {
+        status: 'SAFE',
+        message: '✅ 고객님의 알레르기 목록에 해당하는 위험 성분이 발견되지 않았습니다. 안심하고 섭취하셔도 좋습니다.',
+        detail: null,
+      };
+    }
+
+    // 4. Update state and move to result screen
+    setScanResult(result);
+    setCurrentPage(PAGES.RESULT);
+  };
+
+  // --- Navigation & Flow Handlers ---
+  const handleAllergySelectionChange = (newAllergies) => {
+    // Only update local state for real-time checkbox feedback
+    setUserAllergies(newAllergies);
+  };
+
+  const handleAllergySaveAndContinue = () => {
+    saveAllergies(userAllergies); // Trigger saving and navigation
+  };
+  
+  const handleScan = (file) => {
+    console.log("File selected:", file.name);
+    simulateApiCall(file);
+  };
+  
+  const handleRestart = () => {
+    setScanResult(null);
+    setCurrentPage(PAGES.CAMERA);
+  };
+  
+  // Display Loading screen while waiting for authentication
+  if (!isAuthReady) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-xl font-semibold text-gray-600">
+          앱 초기화 및 사용자 인증 중...
+        </div>
+      </div>
+    );
+  }
+
+  // Render the current page based on state
+  const renderContent = () => {
+    switch (currentPage) {
+      case PAGES.ALLERGIES:
+        return (
+          <AllergySelector
+            selectedAllergies={userAllergies}
+            onSelectionChange={handleAllergySelectionChange}
+            onContinue={handleAllergySaveAndContinue}
+            isSaving={isSaving}
+          />
+        );
+      case PAGES.CAMERA:
+        return (
+          <CameraInput
+            onScan={handleScan}
+          />
+        );
+      case PAGES.LOADING:
+        return (
+          <div className="flex flex-col items-center justify-center p-6 space-y-4">
+            <svg className="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="text-xl font-semibold text-gray-700">성분 분석 중...</p>
+            <p className="text-sm text-gray-500">고객님의 알레르기 정보를 기반으로 분석하고 있습니다.</p>
+          </div>
+        );
+      case PAGES.RESULT:
+        return (
+          <ResultDisplay
+            result={scanResult}
+            onRestart={handleRestart}
+          />
+        );
+      default:
+        return (
+          <div className="text-center p-6 text-red-500">오류: 알 수 없는 페이지입니다.</div>
+        );
+    }
+  };
+
+  // UX Feature: Simple Header to show current step and ability to go to settings
+  const getHeaderTitle = () => {
+    switch (currentPage) {
+      case PAGES.ALLERGIES: return '나의 알레르기 설정';
+      case PAGES.CAMERA: return '성분표 스캔';
+      case PAGES.LOADING: return '분석 진행 중';
+      case PAGES.RESULT: return '분석 결과 안내';
+      default: return 'AI-Foodie';
+    }
+  };
+  
+  // The main UI structure for a mobile-like web app
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg min-h-[550px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <header className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+          <h2 className="text-xl font-extrabold text-red-600">
+            AI-Foodie
+          </h2>
+          <h1 className="text-lg font-semibold text-gray-800 absolute left-1/2 transform -translate-x-1/2">
+            {getHeaderTitle()}
+          </h1>
+          {(currentPage !== PAGES.ALLERGIES && currentPage !== PAGES.LOADING) && (
+            <button
+              onClick={() => setCurrentPage(PAGES.ALLERGIES)}
+              className="text-gray-500 hover:text-gray-700 transition duration-150 p-1 rounded-full hover:bg-gray-100"
+              title="알레르기 수정"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.568.347 1.25.5 1.77.5.54 0 1.07-.153 1.542-.455z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          )}
+        </header>
+        
+        {/* Content Area */}
+        <main className="flex-grow flex items-center justify-center p-4">
+          {renderContent()}
+        </main>
+        
+        {/* Footer/User Info (for debugging/identification) */}
+        <footer className="p-2 border-t text-xs text-gray-400 text-center bg-gray-50">
+          <p>사용자 ID (디버깅): {userId || 'N/A'}</p>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;
