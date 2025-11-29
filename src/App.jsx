@@ -179,8 +179,6 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
   );
 };
 
-// ProfileView는 이제 알레르기 설정 페이지로 대체됩니다.
-
 const HomeView = ({ onNavigate }) => (
     <div className="p-8 space-y-12 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
         
