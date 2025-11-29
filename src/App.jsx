@@ -1,12 +1,12 @@
 /* eslint-disable no-undef */ 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-// Firebase Imports: 사용하지 않으므로 제거합니다. (Firestore 관련 오류 방지)
+// Firebase Imports: 사용하지 않으므로 주석 처리합니다. (Firestore 관련 오류 방지)
 // import { initializeApp } from 'firebase/app';
 // import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 // import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
-// --- Global Variables (사용하지 않으므로 제거) ---
+// --- Global Variables (사용하지 않으므로 더미 값으로 초기화) ---
 const appId = 'default-app-id';
 const firebaseConfig = null;
 const initialAuthToken = null;
@@ -87,7 +87,7 @@ const ResultDisplay = ({ result, onRestart }) => {
  * @param {function} props.onScan - Function to call when a file is selected, taking the file object
  */
 const CameraInput = ({ onScan }) => {
-  const fileInputRef = React.useRef(null); // Ref 생성
+  const fileInputRef = useRef(null); // Ref 생성
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -196,13 +196,8 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue, isS
 
 // Main Application Component
 const App = () => {
-  // State for Firebase (사용하지 않으므로 제거)
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
-  const [userId, setUserId] = useState(null);
-  
-  // isAuthReady 상태는 이제 항상 true입니다.
-  const [isAuthReady, setIsAuthReady] = useState(true); 
+  // isAuthReady 상태는 이제 항상 true입니다. (로그인 오류 방지)
+  const [isAuthReady] = useState(true); 
 
   // State for App Logic
   const [currentPage, setCurrentPage] = useState(PAGES.ALLERGIES);
@@ -210,67 +205,43 @@ const App = () => {
   const [scanResult, setScanResult] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // 🚨🚨🚨 API 백엔드 서버 URL 변수 🚨🚨🚨
-  // 친구의 FastAPI 서버 주소를 여기에 입력합니다.
-  const API_BASE_URL = "http://127.0.0.1:8000"; 
-  // 🚨🚨🚨 API URL 설정 끝 🚨🚨🚨
-
-
-  // --- Firebase Initialization and Authentication ---
-  // 인증 및 데이터 로드 관련 useEffect 블록은 모두 제거되었습니다.
-
-  // --- Firestore: Save User Allergies ---
-  const saveAllergies = useCallback(async (newAllergies) => {
-    // Firestore 로직을 제거하고, 로컬 상태 업데이트만 수행하도록 간소화
-    setUserAllergies(newAllergies); 
-    setCurrentPage(PAGES.CAMERA); 
-    console.warn("Firebase save skipped. Proceeding to camera.");
-  }, []); // 의존성 배열에서 db, userId를 제거하고 빈 배열로 설정
-
-  // --- API 연동 함수 ---
+  // --- API 연동 함수 (시뮬레이션만 남김) ---
   const sendImageForScan = async (file) => {
     // 1. Move to loading state
     setCurrentPage(PAGES.LOADING);
 
-    // 2. FormData 객체 생성 및 이미지, 알레르기 정보 추가
-    const formData = new FormData();
-    formData.append("file", file);
-    // 현재 사용자의 알레르기 목록을 JSON 문자열로 변환하여 전송
-    formData.append("allergies", JSON.stringify(userAllergies));
+    // 2. Simulate network delay and processing
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 3. Simulate API Response based on user's allergies
+    const hasCriticalAllergen = userAllergies.some(a => a.includes('땅콩') || a.includes('새우'));
+    const hasCautionAllergen = userAllergies.some(a => a.includes('우유') || a.includes('계란'));
     
-    // 3. 백엔드 API 호출 (FastAPI의 /analyze 엔드포인트)
-    try {
-        const response = await fetch(`${API_BASE_URL}/analyze`, {
-            method: 'POST',
-            body: formData,
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+    let result = {};
 
-        const data = await response.json();
-        
-        // 4. API 응답 데이터를 기반으로 결과 화면 구성
-        const result = {
-            status: data.status.toUpperCase(), // SAFE, CAUTION, DANGER
-            message: data.message,
-            detail: data.detected_allergens || [], // 검출된 알레르기 목록
-        };
-
-        setScanResult(result);
-        setCurrentPage(PAGES.RESULT);
-
-    } catch (error) {
-        console.error("API 통신 실패 또는 응답 오류:", error);
-        // 통신 실패 시에도 사용자에게 결과를 보여줄 수 있도록 에러 시뮬레이션
-        setScanResult({
-            status: 'CAUTION',
-            message: '⚠️ 서버 연결 또는 분석에 실패했습니다. (로컬 서버 실행 여부 확인 필요)',
-            detail: [`API Error: ${error.message}`],
-        });
-        setCurrentPage(PAGES.RESULT);
+    if (hasCriticalAllergen) { // Critical allergen selected -> DANGER
+      result = {
+        status: 'DANGER',
+        message: '🚨 고객님이 선택하신 알레르기 성분 (땅콩 또는 새우)이 검출되었습니다.',
+        detail: ['땅콩 추출물 (Peanut Extract)', '글루텐 (Gluten)'],
+      };
+    } else if (hasCautionAllergen) { // Caution allergen selected -> CAUTION
+      result = {
+        status: 'CAUTION',
+        message: '⚠️ 알레르기 유발 가능 성분 또는 교차 오염 위험이 있는 성분이 확인되었습니다.',
+        detail: ['유청단백 (Whey Protein)', '난황액 (Egg Yolk Liquid)'],
+      };
+    } else {
+      result = {
+        status: 'SAFE',
+        message: '✅ 고객님의 알레르기 목록에 해당하는 위험 성분이 발견되지 않았습니다. 안심하고 섭취하셔도 좋습니다.',
+        detail: null,
+      };
     }
+
+    // 4. Update state and move to result screen
+    setScanResult(result);
+    setCurrentPage(PAGES.RESULT);
   };
 
   // --- Navigation & Flow Handlers ---
@@ -280,12 +251,15 @@ const App = () => {
   };
 
   const handleAllergySaveAndContinue = () => {
-    saveAllergies(userAllergies); // Trigger saving and navigation
+    // Firebase 코드를 제거했으므로, 로컬 상태만 업데이트하고 다음 화면으로 전환
+    setUserAllergies(userAllergies); 
+    setCurrentPage(PAGES.CAMERA); 
+    console.warn("Save skipped. Proceeding to camera.");
   };
   
   const handleScan = (file) => {
     console.log("File selected:", file.name);
-    // simulateApiCall 대신 API 연동 함수 사용
+    // 시뮬레이션 함수 사용
     sendImageForScan(file);
   };
   
@@ -309,7 +283,7 @@ const App = () => {
       case PAGES.CAMERA:
         return (
           <CameraInput
-            onScan={handleScan} // 👈 handleScan 함수를 전달합니다.
+            onScan={handleScan}
           />
         );
       case PAGES.LOADING:
@@ -381,7 +355,7 @@ const App = () => {
         
         {/* Footer/User Info (for debugging/identification) */}
         <footer className="p-2 border-t text-xs text-gray-400 text-center bg-gray-50">
-          <p>사용자 ID (디버깅): {userId || 'N/A'}</p>
+          <p>사용자 ID (디버깅): N/A (Firebase 제거됨)</p>
         </footer>
       </div>
     </div>
