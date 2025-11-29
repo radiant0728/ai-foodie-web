@@ -309,7 +309,7 @@ const App = () => {
       case PAGES.CAMERA:
         return (
           <CameraInput
-            onScan={handleScan}
+            onScan={handleScan} // 👈 handleScan 함수를 전달합니다.
           />
         );
       case PAGES.LOADING:
