@@ -104,6 +104,7 @@ const CameraInput = ({ onScan }) => {
     }
   };
 
+
   return (
     <div className="flex flex-col items-center justify-center p-6 space-y-8 h-full">
       <h1 className="text-2xl font-bold text-gray-700">📸 성분표 사진 촬영 / 업로드</h1>
@@ -144,10 +145,7 @@ const CameraInput = ({ onScan }) => {
 
 /**
  * AllergySelector Component: Manages user's selected allergies using checkboxes.
- * @param {object} props - Component props
- * @param {array} props.selectedAllergies - Current list of selected allergies
- * @param {function} props.onSelectionChange - Function to call on change
- * @param {boolean} props.isSaving - Indicates if data is currently being saved
+// ... (AllergySelector 컴포넌트 전체는 동일)
  */
 const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue, isSaving }) => {
   const isSelected = (allergen) => selectedAllergies.includes(allergen);
@@ -209,12 +207,20 @@ const App = () => {
   const [userAllergies, setUserAllergies] = useState([]);
   const [scanResult, setScanResult] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // 🚨🚨🚨 API 백엔드 서버 URL 변수 추가 🚨🚨🚨
+  // 이 주소를 친구의 IP 주소로 바꿔야 합니다. 
+  const API_BASE_URL = "http://127.0.0.1:8000"; 
+  // 🚨🚨🚨 API URL 설정 끝 🚨🚨🚨
+
 
   // --- Firebase Initialization and Authentication ---
   useEffect(() => {
+    // 앱이 실행되자마자 isAuthReady를 true로 설정하여 UI를 먼저 렌더링합니다. (로그인 오류 해결)
+    setIsAuthReady(true); 
+
     if (!firebaseConfig) {
-      console.error("Firebase config is missing. Running in simulation mode.");
-      setIsAuthReady(true);
+      console.warn("Firebase config is missing. Running in simulation mode.");
       return;
     }
 
@@ -225,21 +231,21 @@ const App = () => {
       setDb(firestore);
       setAuth(authentication);
 
-      // 1. Authenticate with initial token or anonymously
+      // 1. 인증 시도 (CustomToken 또는 익명 로그인)
       const authenticate = async () => {
         try {
           if (initialAuthToken) {
             await signInWithCustomToken(authentication, initialAuthToken);
           } else {
-            await signInAnonymously(authentication); // Fallback to anonymous sign-in
+            // 익명 로그인 시도 (익명 로그인 실패 시 오류를 발생시키지 않도록 try/catch 사용)
+            await signInAnonymously(authentication); 
           }
         } catch (error) {
-          console.error("Firebase Auth failed:", error);
-          await signInAnonymously(authentication); // Fallback to anonymous sign-in
+          console.error("Firebase Auth failed (Continuing without login):", error);
         }
       };
       
-      // 2. Set up Auth State Listener
+      // 2. Auth State Listener 설정
       const unsubscribe = onAuthStateChanged(authentication, (user) => {
         if (user) {
           setUserId(user.uid);
@@ -248,7 +254,6 @@ const App = () => {
           setUserId(null);
           console.log("No user authenticated.");
         }
-        setIsAuthReady(true); // Authentication check is complete
       });
 
       authenticate();
@@ -256,7 +261,6 @@ const App = () => {
 
     } catch (error) {
       console.error("Error initializing Firebase:", error);
-      setIsAuthReady(true); // Still mark as ready even if initialization fails
     }
   }, []);
 
@@ -270,7 +274,6 @@ const App = () => {
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // Firestore stores array of strings directly, so no JSON.parse needed unless complex data
         const savedAllergies = data.allergies || [];
         setUserAllergies(savedAllergies);
         console.log("Allergies loaded successfully:", savedAllergies);
@@ -287,13 +290,16 @@ const App = () => {
 
   // --- Firestore: Save User Allergies ---
   const saveAllergies = useCallback(async (newAllergies) => {
-    // 로컬 환경 감지 (db나 userId가 없을 때)
+    // 🚨🚨🚨 로컬 환경 우회 로직 (버튼 클릭 시 다음 화면 전환 보장) 🚨🚨🚨
     if (!db || !userId) {
-      console.error("Firestore not ready or user not logged in. Cannot save. Proceeding to next screen.");
-      setCurrentPage(PAGES.CAMERA); // **화면 전환 로직을 여기에 삽입합니다.**
-      return;
+      console.warn("Firebase not ready. Skipping save and proceeding to camera screen.");
+      setUserAllergies(newAllergies); 
+      setCurrentPage(PAGES.CAMERA); 
+      return; 
     }
+    // 🚨🚨🚨 우회 로직 끝 🚨🚨🚨
     
+    // 실제 저장 로직
     setIsSaving(true);
     const docRef = doc(db, 'artifacts', appId, 'users', userId, 'allergies', 'current');
     
@@ -312,48 +318,52 @@ const App = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [db, userId, appId]); // 의존성 배열에 appId를 추가하여 경고를 방지합니다.
+  }, [db, userId]);
 
-  // --- API Simulation Function ---
-  const simulateApiCall = async (file) => {
-    // In a real app, you would use fetch to send the image and allergies to a server.
-    // e.g., const response = await fetch('/api/scan', { method: 'POST', body: formData });
-    
+  // --- API 연동 함수로 교체 ---
+  const sendImageForScan = async (file) => {
     // 1. Move to loading state
     setCurrentPage(PAGES.LOADING);
 
-    // 2. Simulate network delay and processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // 3. Simulate API Response based on user's allergies
-    const hasCriticalAllergen = userAllergies.some(a => a.includes('땅콩') || a.includes('새우'));
-    const hasCautionAllergen = userAllergies.some(a => a.includes('우유') || a.includes('계란'));
+    // 2. FormData 객체 생성 및 이미지, 알레르기 정보 추가
+    const formData = new FormData();
+    formData.append("file", file);
+    // 현재 사용자의 알레르기 목록을 JSON 문자열로 변환하여 전송
+    formData.append("allergies", JSON.stringify(userAllergies));
     
-    let result = {};
+    // 3. 백엔드 API 호출 (FastAPI의 /analyze 엔드포인트)
+    try {
+        const response = await fetch(`${API_BASE_URL}/analyze`, {
+            method: 'POST',
+            body: formData,
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-    if (hasCriticalAllergen && Math.random() < 0.6) { // 60% chance of 'DANGER' if critical allergen selected
-      result = {
-        status: 'DANGER',
-        message: '🚨 고객님이 선택하신 알레르기 성분 (땅콩 또는 새우)이 성분표에서 직접적으로 검출되었습니다.',
-        detail: ['땅콩 추출물 (Peanut Extract)', '글루텐 (Gluten)'],
-      };
-    } else if (hasCautionAllergen && Math.random() < 0.8) { // 80% chance of 'CAUTION' if caution allergen selected
-      result = {
-        status: 'CAUTION',
-        message: '⚠️ 알레르기 유발 가능 성분 또는 교차 오염 위험이 있는 성분이 확인되었습니다. 주의하세요.',
-        detail: ['유청단백 (Whey Protein)', '난황액 (Egg Yolk Liquid)'],
-      };
-    } else {
-      result = {
-        status: 'SAFE',
-        message: '✅ 고객님의 알레르기 목록에 해당하는 위험 성분이 발견되지 않았습니다. 안심하고 섭취하셔도 좋습니다.',
-        detail: null,
-      };
+        const data = await response.json();
+        
+        // 4. API 응답 데이터를 기반으로 결과 화면 구성
+        const result = {
+            status: data.status.toUpperCase(), // SAFE, CAUTION, DANGER
+            message: data.message,
+            detail: data.detected_allergens || [], // 검출된 알레르기 목록
+        };
+
+        setScanResult(result);
+        setCurrentPage(PAGES.RESULT);
+
+    } catch (error) {
+        console.error("API 통신 실패 또는 응답 오류:", error);
+        // 통신 실패 시에도 사용자에게 결과를 보여줄 수 있도록 에러 시뮬레이션
+        setScanResult({
+            status: 'CAUTION',
+            message: '⚠️ 서버 연결 또는 분석에 실패했습니다. (로컬 서버 실행 여부 확인 필요)',
+            detail: [`API Error: ${error.message}`],
+        });
+        setCurrentPage(PAGES.RESULT);
     }
-
-    // 4. Update state and move to result screen
-    setScanResult(result);
-    setCurrentPage(PAGES.RESULT);
   };
 
   // --- Navigation & Flow Handlers ---
@@ -368,7 +378,8 @@ const App = () => {
   
   const handleScan = (file) => {
     console.log("File selected:", file.name);
-    simulateApiCall(file);
+    // simulateApiCall 대신 API 연동 함수 사용
+    sendImageForScan(file);
   };
   
   const handleRestart = () => {
@@ -376,17 +387,6 @@ const App = () => {
     setCurrentPage(PAGES.CAMERA);
   };
   
-  // Display Loading screen while waiting for authentication
-  if (!isAuthReady) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-xl font-semibold text-gray-600">
-          앱 초기화 및 사용자 인증 중...
-        </div>
-      </div>
-    );
-  }
-
   // Render the current page based on state
   const renderContent = () => {
     switch (currentPage) {
