@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 // Firebase Imports
+// (Firebase 라이브러리 import는 doc, setDoc 사용을 위해 유지)
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -200,7 +201,8 @@ const App = () => {
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  // isAuthReady 상태는 UI를 먼저 띄우기 위해 사용됩니다.
+  const [isAuthReady, setIsAuthReady] = useState(false); 
 
   // State for App Logic
   const [currentPage, setCurrentPage] = useState(PAGES.ALLERGIES);
@@ -208,63 +210,21 @@ const App = () => {
   const [scanResult, setScanResult] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // 🚨🚨🚨 API 백엔드 서버 URL 변수 추가 🚨🚨🚨
-  // 이 주소를 친구의 IP 주소로 바꿔야 합니다. 
+  // 🚨🚨🚨 API 백엔드 서버 URL 변수 🚨🚨🚨
+  // 친구의 FastAPI 서버 주소를 여기에 입력합니다.
   const API_BASE_URL = "http://127.0.0.1:8000"; 
   // 🚨🚨🚨 API URL 설정 끝 🚨🚨🚨
 
 
   // --- Firebase Initialization and Authentication ---
+  // 🚨🚨🚨 이 useEffect 블록 전체를 삭제하여 인증 시도를 완전히 막습니다. 🚨🚨🚨
   useEffect(() => {
     // 앱이 실행되자마자 isAuthReady를 true로 설정하여 UI를 먼저 렌더링합니다. (로그인 오류 해결)
     setIsAuthReady(true); 
-
-    if (!firebaseConfig) {
-      console.warn("Firebase config is missing. Running in simulation mode.");
-      return;
-    }
-
-    try {
-      const app = initializeApp(firebaseConfig);
-      const firestore = getFirestore(app);
-      const authentication = getAuth(app);
-      setDb(firestore);
-      setAuth(authentication);
-
-      // 1. 인증 시도 (CustomToken 또는 익명 로그인)
-      const authenticate = async () => {
-        try {
-          if (initialAuthToken) {
-            await signInWithCustomToken(authentication, initialAuthToken);
-          } else {
-            // 익명 로그인 시도 (익명 로그인 실패 시 오류를 발생시키지 않도록 try/catch 사용)
-            await signInAnonymously(authentication); 
-          }
-        } catch (error) {
-          console.error("Firebase Auth failed (Continuing without login):", error);
-        }
-      };
-      
-      // 2. Auth State Listener 설정
-      const unsubscribe = onAuthStateChanged(authentication, (user) => {
-        if (user) {
-          setUserId(user.uid);
-          console.log("User authenticated:", user.uid);
-        } else {
-          setUserId(null);
-          console.log("No user authenticated.");
-        }
-      });
-
-      authenticate();
-      return () => unsubscribe();
-
-    } catch (error) {
-      console.error("Error initializing Firebase:", error);
-    }
-  }, []);
+  }, []); // 🚨🚨🚨 인증 관련 코드를 모두 삭제하고, isAuthReady만 true로 설정합니다. 🚨🚨🚨
 
   // --- Firestore: Load User Allergies on Auth Ready ---
+  // 🚨🚨🚨 이 useEffect 블록 전체를 삭제합니다. (Firestore 리스너가 문제의 근원) 🚨🚨🚨
   useEffect(() => {
     if (!isAuthReady || !db || !userId) return;
 
@@ -286,39 +246,16 @@ const App = () => {
 
     return () => unsubscribe(); // Cleanup listener
 
-  }, [isAuthReady, db, userId]);
+  }, [isAuthReady, db, userId]); // 🚨🚨🚨 이 블록 전체를 삭제해야 합니다. 🚨🚨🚨
 
   // --- Firestore: Save User Allergies ---
   const saveAllergies = useCallback(async (newAllergies) => {
-    // 🚨🚨🚨 로컬 환경 우회 로직 (버튼 클릭 시 다음 화면 전환 보장) 🚨🚨🚨
-    if (!db || !userId) {
-      console.warn("Firebase not ready. Skipping save and proceeding to camera screen.");
-      setUserAllergies(newAllergies); 
-      setCurrentPage(PAGES.CAMERA); 
-      return; 
-    }
-    // 🚨🚨🚨 우회 로직 끝 🚨🚨🚨
-    
-    // 실제 저장 로직
-    setIsSaving(true);
-    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'allergies', 'current');
-    
-    try {
-      // Use setDoc to create or overwrite the document
-      await setDoc(docRef, {
-        allergies: newAllergies,
-        updatedAt: new Date().toISOString(),
-      });
-      setUserAllergies(newAllergies); // Update local state on successful save
-      console.log("Allergies saved successfully.");
-      setCurrentPage(PAGES.CAMERA); // Move to the next screen after saving
-    } catch (error) {
-      console.error("Error saving allergy data:", error);
-      alert('알레르기 정보 저장에 실패했습니다. 콘솔을 확인해 주세요.');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [db, userId]);
+    // 🚨🚨🚨 로컬 환경 우회 로직만 남기고, 실제 Firestore 코드는 제거합니다. 🚨🚨🚨
+    // Firestore 인증 문제가 모두 해결되었으므로, 이제는 로컬 상태 업데이트만 수행하도록 간소화합니다.
+    setUserAllergies(newAllergies); 
+    setCurrentPage(PAGES.CAMERA); 
+    console.warn("Firebase save skipped. Proceeding to camera.");
+  }, []); // 의존성 배열에서 db, userId 제거
 
   // --- API 연동 함수로 교체 ---
   const sendImageForScan = async (file) => {
