@@ -1,15 +1,15 @@
 /* eslint-disable no-undef */ 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-// Firebase Imports: 사용자 인증 및 데이터 저장을 위해 다시 활성화합니다.
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, collection, query, getDocs, orderBy, limit, serverTimestamp, onSnapshot } from 'firebase/firestore'; 
+// Firebase Imports: 로그인/저장 기능을 제거하므로 모두 주석 처리합니다.
+// import { initializeApp } from 'firebase/app';
+// import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
+// import { getFirestore, doc, setDoc, collection, query, getDocs, orderBy, limit, serverTimestamp, onSnapshot } from 'firebase/firestore'; 
 
-// --- Global Variables (Canvas 환경 변수 재정의) ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : null;
+// --- Global Variables (사용하지 않으므로 더미 값으로 초기화) ---
+const appId = 'default-app-id';
+const firebaseConfig = null;
+const initialAuthToken = null;
 // --- End Global Variables ---
 
 
@@ -17,7 +17,7 @@ const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAu
 const PAGES = {
   HOME: 'home',       // 메인 대시보드
   SCAN: 'scan',       // 메인 기능
-  PROFILE: 'profile', // 새로운 프로필 페이지 (스캔 기록, 설정)
+  PROFILE: 'profile', // 프로필 뷰 (로그인 없이 스캔 기록만 표시)
   ALLERGIES: 'allergies', // 알레르기 설정
   INFO: 'info',       // 회사 정보, FAQ
   // 서브 페이지: 스캔 흐름
@@ -183,7 +183,8 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
   );
 };
 
-const ProfileView = ({ user, scanHistory, onNavigate, onLogout, onLogin }) => {
+const ProfileView = ({ scanHistory, onNavigate }) => {
+  // 로그인 기능이 제거되었으므로, 총 스캔 횟수와 위험도는 단순히 기록된 데이터만 사용합니다.
   const totalScans = scanHistory.length;
   const lastScan = totalScans > 0 ? new Date(scanHistory[0].timestamp).toLocaleDateString('ko-KR') : '없음';
 
@@ -199,21 +200,16 @@ const ProfileView = ({ user, scanHistory, onNavigate, onLogout, onLogin }) => {
   return (
     <div className="p-8 space-y-8 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
       <h1 className="text-3xl font-extrabold text-violet-400 font-sans-kr border-b border-gray-700 pb-3">
-        사용자 대시보드
+        나의 스캔 기록
       </h1>
 
-      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg space-y-4">
+      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg space-y-4 text-center">
         <p className="text-lg font-semibold text-white font-sans-kr">
-          환영합니다, <span className="text-violet-400">{user.isLoggedIn ? user.userId.substring(0, 8) + '...' : '방문자'}</span>님!
+          환영합니다, <span className="text-violet-400">방문자</span>님!
         </p>
-        {/* 🚨 로그인/로그아웃 버튼 수정: onLogin 함수 연결 */}
-        <button
-            onClick={user.isLoggedIn ? onLogout : onLogin}
-            className={`py-2 px-4 rounded-lg text-sm font-bold transition duration-150 font-sans-kr
-                ${user.isLoggedIn ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
-        >
-            {user.isLoggedIn ? '로그아웃' : '로그인 / 회원가입'}
-        </button>
+        <p className="text-sm text-gray-400 font-sans-kr">
+            (로그인 기능은 제거되었으나, 현재 세션의 알레르기 설정은 유지됩니다.)
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -354,11 +350,10 @@ const InfoView = () => (
 
 // Main Application Component
 const App = () => {
-  // State for Firebase - 다시 활성화
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
-  const [userId, setUserId] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false); // 인증 상태 확인용
+  // State for Firebase - 모두 제거
+  
+  // isAuthReady 상태는 이제 항상 true입니다.
+  const [isAuthReady] = useState(true); 
 
   // State for App Logic
   const [currentPage, setCurrentPage] = useState(PAGES.HOME); 
@@ -366,7 +361,8 @@ const App = () => {
   const [userAllergies, setUserAllergies] = useState([]);
   const [scanResult, setScanResult] = useState(null);
   const [isSaving, setIsSaving] = useState(false); 
-  const [scanHistory, setScanHistory] = useState([]); // 스캔 기록 누적 저장
+  // 스캔 기록은 이제 로컬 세션에서만 관리되도록 초기화합니다.
+  const [scanHistory, setScanHistory] = useState([]); 
   
   // --- API 연동 함수 (시뮬레이션만 남김) ---
   const sendImageForScan = async (file) => {
@@ -406,185 +402,18 @@ const App = () => {
     setScanResult(result);
     setScanState(PAGES.RESULT);
     
-    // 5. 스캔 기록 저장 (인증된 사용자일 경우만)
-    if (userId && db) {
-        saveScanResult(result);
-    }
+    // 5. 스캔 기록 저장 (로컬 상태 업데이트)
+    const newScan = { status: result.status, timestamp: Date.now(), ...result };
+    setScanHistory(prevHistory => [newScan, ...prevHistory.slice(0, 9)]); // 최대 10개 기록 유지
   };
   
-  // --- Firebase Initialization and Authentication ---
-  useEffect(() => {
-    if (!firebaseConfig) {
-      console.warn("Firebase config is missing. Proceeding to simulation mode.");
-      setIsAuthReady(true);
-      return;
-    }
-
-    try {
-      const app = initializeApp(firebaseConfig);
-      const firestore = getFirestore(app);
-      const authentication = getAuth(app);
-      setDb(firestore);
-      setAuth(authentication);
-
-      // 익명 로그인 시도 (로그인 창 오류를 피하기 위해 onAuthStateChanged 내에서 처리하지 않음)
-      const authenticate = async () => {
-        try {
-          if (initialAuthToken) {
-            // 이전에 토큰이 있다면 Custom Token으로 로그인 시도
-            // alert('Custom Token Login is not implemented in this demo.'); 
-            await signInAnonymously(authentication); // 익명 로그인으로 대체
-          } else {
-            // 토큰이 없다면 익명 로그인 시도
-            await signInAnonymously(authentication); 
-          }
-        } catch (error) {
-          console.error("Firebase Auth failed:", error);
-        }
-      };
-      
-      // Auth State Listener 설정
-      const unsubscribe = onAuthStateChanged(authentication, (user) => {
-        if (user) {
-          setUserId(user.uid);
-          console.log("User authenticated:", user.uid);
-        } else {
-          setUserId(null);
-          console.log("No user authenticated.");
-        }
-        setIsAuthReady(true); // 인증 체크 완료
-      });
-
-      // 🚨🚨🚨 자동 인증 호출 제거: 이 부분을 제거하여 친구의 로그인 문제를 해결합니다. 🚨🚨🚨
-      // authenticate(); // <--- 이 줄을 삭제합니다.
-
-      // 대신, 인증 상태 리스너가 준비되면 UI를 먼저 띄웁니다.
-      // 리스너는 onAuthStateChanged 내에서 이미 isAuthReady를 설정하므로 문제가 없습니다.
-
-      return () => unsubscribe();
-
-    } catch (error) {
-      console.error("Error initializing Firebase:", error);
-      setIsAuthReady(true);
-    }
-  }, []); // 🚨🚨🚨 이 useEffect 블록 전체를 복원하여 로그인/로그아웃 기능을 다시 활성화했습니다. 🚨🚨🚨
-
-  // --- Firestore: Load User Data & Scan History (실시간 리스너 사용) ---
-  useEffect(() => {
-    // 인증 준비가 안 되었거나, db나 userId가 없으면 실행하지 않음
-    if (!isAuthReady || !db || !userId) return;
-
-    // 1. 알레르기 정보 로드 리스너
-    const allergyDocRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'allergies');
-    const unsubscribeAllergies = onSnapshot(allergyDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const savedAllergies = data.allergies || [];
-        setUserAllergies(savedAllergies);
-      } else {
-        console.log("No existing allergy data found.");
-      }
-    }, (error) => {
-      console.error("Error fetching allergy data:", error);
-    });
-
-    // 2. 스캔 기록 로드 리스너
-    const scansCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'scans');
-    // 최신순 10개만 로드하도록 쿼리 설정
-    const q = query(scansCollectionRef, orderBy('timestamp', 'desc'), limit(10));
-    
-    const unsubscribeScans = onSnapshot(q, (snapshot) => {
-        const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setScanHistory(history);
-    }, (error) => {
-        console.error("Error fetching scan history:", error);
-    });
-    
-    // 클린업 함수
-    return () => {
-        unsubscribeAllergies();
-        unsubscribeScans();
-    };
-
-  }, [isAuthReady, db, userId]);
-
-  // --- Firestore: Save User Allergies ---
+  // --- Save User Allergies (로그인 없이 로컬 상태만 사용) ---
   const saveAllergies = useCallback(async (newAllergies) => {
-    if (!db || !userId) {
-      console.warn("Firebase not ready. Skipping save and proceeding to camera screen.");
-      setUserAllergies(newAllergies); 
-      setScanState(PAGES.CAMERA); 
-      setCurrentPage(PAGES.SCAN);
-      return; 
-    }
-    
-    setIsSaving(true);
-    const allergyDocRef = doc(db, 'artifacts', appId, 'users', userId, 'profile', 'allergies');
-    
-    try {
-      await setDoc(allergyDocRef, {
-        allergies: newAllergies,
-        updatedAt: serverTimestamp(),
-      });
-      setUserAllergies(newAllergies); 
-      setScanState(PAGES.CAMERA); 
-      setCurrentPage(PAGES.SCAN);
-    } catch (error) {
-      console.error("Error saving allergy data:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [db, userId, appId]);
-  
-  // --- Firestore: Save Scan Result (누적 저장) ---
-  const saveScanResult = useCallback(async (result) => {
-      if (!db || !userId) {
-          console.warn("Firebase not ready. Scan result not saved.");
-          return;
-      }
-      
-      const scansCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'scans');
-      
-      try {
-          // 스캔 기록에 결과와 타임스탬프를 저장
-          await setDoc(doc(scansCollectionRef), {
-              status: result.status,
-              message: result.message,
-              detected_allergens: result.detail || [],
-              timestamp: serverTimestamp(),
-          });
-      } catch (error) {
-          console.error("Error saving scan result:", error);
-      }
-  }, [db, userId, appId]);
-
-  // --- Logout Handler ---
-  const handleLogout = useCallback(async () => {
-      if (!auth) return;
-      try {
-          await signOut(auth);
-          setScanHistory([]); // 기록 초기화
-          setCurrentPage(PAGES.HOME);
-      } catch (error) {
-          console.error("Logout failed:", error);
-      }
-  }, [auth]);
-  
-  // --- Login Handler (새롭게 추가) ---
-  const handleLogin = useCallback(async () => {
-      if (!auth) {
-          // Firebase가 초기화되지 않았을 경우 경고만 표시하고 리턴
-          console.warn("Firebase Auth not available.");
-          return;
-      }
-      try {
-          // 사용자가 버튼을 눌렀을 때만 익명 로그인 시도
-          await signInAnonymously(auth);
-      } catch (error) {
-          console.error("Anonymous login failed:", error);
-      }
-  }, [auth]);
-
+    // 로컬 상태만 업데이트하고 스캔 흐름 시작
+    setUserAllergies(newAllergies); 
+    setScanState(PAGES.CAMERA); 
+    setCurrentPage(PAGES.SCAN);
+  }, []); 
 
   // --- Navigation & Flow Handlers ---
   const handleAllergySelectionChange = (newAllergies) => {
@@ -592,7 +421,6 @@ const App = () => {
   };
 
   const handleAllergySaveAndContinue = () => {
-    // ALLERGIES 페이지에서 PROFILE 페이지로 네비게이션을 위해 saveAllergies 호출
     saveAllergies(userAllergies); 
   };
   
@@ -629,19 +457,7 @@ const App = () => {
   }
   
   const renderContent = () => {
-    // 인증 대기 중에는 로딩 화면을 보여줌
-    if (!isAuthReady && firebaseConfig) {
-        return (
-            <div className="flex items-center justify-center p-16 h-full bg-gray-900 text-white font-sans-kr">
-                <svg className="animate-spin h-8 w-8 text-violet-400 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                인증 및 데이터 로딩 중...
-            </div>
-        );
-    }
-
+    // isAuthReady가 항상 true이므로, 바로 컨텐츠를 렌더링합니다.
     switch (currentPage) {
       case PAGES.HOME:
         return <HomeView onNavigate={setCurrentPage} />;
@@ -655,14 +471,11 @@ const App = () => {
             onContinue={handleAllergySaveAndContinue}
           />
         );
-      case PAGES.PROFILE: // 새로운 프로필 뷰 추가
+      case PAGES.PROFILE: // 프로필 뷰는 이제 로그인 없이 스캔 기록만 보여줍니다.
         return (
             <ProfileView 
-                user={{ isLoggedIn: !!userId, userId: userId || 'N/A' }} 
                 scanHistory={scanHistory} 
                 onNavigate={setCurrentPage} 
-                onLogout={handleLogout}
-                onLogin={handleLogin} // handleLogin 함수를 ProfileView에 전달합니다.
             />
         );
       case PAGES.INFO:
@@ -723,11 +536,12 @@ const App = () => {
                     ))}
                 </div>
                 
+                {/* 로그인/로그아웃 버튼 대신 프로필 이동 버튼만 남깁니다. */}
                 <button 
-                    className="text-sm text-gray-400 hover:text-white transition font-sans-kr"
-                    onClick={() => setCurrentPage(PAGES.PROFILE)} // 프로필 버튼을 프로필 뷰로 연결
+                    className="text-sm font-bold bg-violet-600 text-white py-2 px-4 rounded-lg hover:bg-violet-700 transition font-sans-kr"
+                    onClick={() => setCurrentPage(PAGES.PROFILE)}
                 >
-                    {userId ? '내 프로필' : '로그인'}
+                    프로필 보기
                 </button>
             </div>
         </nav>
