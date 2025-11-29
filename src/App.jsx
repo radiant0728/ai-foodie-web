@@ -118,7 +118,7 @@ const CameraInput = ({ onScan }) => {
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.867-1.299A2 2 0 0111.07 4h1.861c.42 0 .813.195 1.07.51L15.405 6.11a2 2 0 001.664.89h.93a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
         <span className="text-lg font-semibold text-gray-600">사진 업로드</span>
         
@@ -225,6 +225,8 @@ const App = () => {
 
   // --- Firestore: Load User Allergies on Auth Ready ---
   // 🚨🚨🚨 이 useEffect 블록 전체를 삭제합니다. (Firestore 리스너가 문제의 근원) 🚨🚨🚨
+  // 이 블록은 Firebase 인증과 데이터 로드 로직을 포함하고 있었으나, 
+  // 공개 접속을 위해 인증 코드를 제거했으므로, 이 블록 역시 완전히 제거해야 합니다.
   useEffect(() => {
     if (!isAuthReady || !db || !userId) return;
 
@@ -339,7 +341,7 @@ const App = () => {
       case PAGES.CAMERA:
         return (
           <CameraInput
-            onScan={handleScan}
+            onScan={onScan}
           />
         );
       case PAGES.LOADING:
