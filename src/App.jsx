@@ -1,10 +1,7 @@
 /* eslint-disable no-undef */ 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-// Firebase Imports: 로그인/저장 기능을 제거하므로 모두 주석 처리합니다.
-// import { initializeApp } from 'firebase/app';
-// import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
-// import { getFirestore, doc, setDoc, collection, query, getDocs, orderBy, limit, serverTimestamp, onSnapshot } from 'firebase/firestore'; 
+// Firebase Imports: 로그인/저장 기능이 완전히 제거되었으므로, 모든 import를 삭제합니다.
 
 // --- Global Variables (사용하지 않으므로 더미 값으로 초기화) ---
 const appId = 'default-app-id';
@@ -13,12 +10,11 @@ const initialAuthToken = null;
 // --- End Global Variables ---
 
 
-// Define App Pages (Expanded for company structure)
+// Define App Pages (PROFILE을 제거하고 ALLERGIES를 메인 탭으로 변경)
 const PAGES = {
   HOME: 'home',       // 메인 대시보드
   SCAN: 'scan',       // 메인 기능
-  PROFILE: 'profile', // 프로필 뷰 (로그인 없이 스캔 기록만 표시)
-  ALLERGIES: 'allergies', // 알레르기 설정
+  ALLERGIES: 'allergies', // 메인 프로필 설정 탭
   INFO: 'info',       // 회사 정보, FAQ
   // 서브 페이지: 스캔 흐름
   LOADING: 'loading',
@@ -153,8 +149,8 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
 
   return (
     <div className="p-6 space-y-6 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
-      <h1 className="text-3xl font-bold text-violet-400 font-sans-kr">프로필 설정 (나의 알레르기)</h1>
-      <p className="text-gray-400 font-sans-kr">가지고 계신 알레르기 항목을 모두 선택해 주세요.</p>
+      <h1 className="text-3xl font-bold text-violet-400 font-sans-kr">나의 알레르기 설정</h1>
+      <p className="text-gray-400 font-sans-kr">가지고 계신 알레르기 항목을 모두 선택해 주세요. 이 정보는 분석에 사용됩니다.</p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-3 border border-gray-700 rounded-lg bg-gray-800">
         {ALLERGEN_OPTIONS.map((allergen) => (
@@ -183,75 +179,7 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
   );
 };
 
-const ProfileView = ({ scanHistory, onNavigate }) => {
-  // 로그인 기능이 제거되었으므로, 총 스캔 횟수와 위험도는 단순히 기록된 데이터만 사용합니다.
-  const totalScans = scanHistory.length;
-  const lastScan = totalScans > 0 ? new Date(scanHistory[0].timestamp).toLocaleDateString('ko-KR') : '없음';
-
-  // 가장 높은 위험 등급 계산
-  const severityMap = { DANGER: 3, CAUTION: 2, SAFE: 1 };
-  const highestSeverity = scanHistory.reduce((max, scan) => {
-    return Math.max(max, severityMap[scan.status]);
-  }, 0);
-  
-  const statusColor = highestSeverity === 3 ? 'text-red-500' : highestSeverity === 2 ? 'text-yellow-500' : 'text-green-500';
-  const statusText = highestSeverity === 3 ? '위험 (DANGER)' : highestSeverity === 2 ? '주의 (CAUTION)' : '안전 (SAFE)';
-
-  return (
-    <div className="p-8 space-y-8 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
-      <h1 className="text-3xl font-extrabold text-violet-400 font-sans-kr border-b border-gray-700 pb-3">
-        나의 스캔 기록
-      </h1>
-
-      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg space-y-4 text-center">
-        <p className="text-lg font-semibold text-white font-sans-kr">
-          환영합니다, <span className="text-violet-400">방문자</span>님!
-        </p>
-        <p className="text-sm text-gray-400 font-sans-kr">
-            (로그인 기능은 제거되었으나, 현재 세션의 알레르기 설정은 유지됩니다.)
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-gray-800 rounded-xl border border-gray-700">
-          <p className="text-sm text-gray-400 font-sans-kr">총 스캔 횟수</p>
-          <p className={`text-3xl font-bold text-white font-sans-kr mt-1`}>{totalScans}</p>
-        </div>
-        <div className="p-4 bg-gray-800 rounded-xl border border-gray-700">
-          <p className="text-sm text-gray-400 font-sans-kr">누적 최고 위험</p>
-          <p className={`text-xl font-bold ${statusColor} font-sans-kr mt-1`}>{statusText}</p>
-        </div>
-      </div>
-      
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-violet-400 font-sans-kr border-b border-gray-800 pb-2">
-            나의 스캔 기록 (최신순)
-        </h2>
-        <div className="max-h-64 overflow-y-auto space-y-3">
-          {scanHistory.length === 0 ? (
-            <p className="text-gray-500 font-sans-kr">아직 스캔 기록이 없습니다. AI 스캔을 시작해 보세요!</p>
-          ) : (
-            scanHistory.map((scan, index) => (
-              <div key={index} className="p-3 bg-gray-800 rounded-lg border border-gray-700 flex justify-between items-center">
-                <span className={`font-semibold ${colorMap[scan.status].accent} font-sans-kr`}>
-                  {scan.status.toUpperCase()}
-                </span>
-                <span className="text-sm text-gray-400 font-sans-kr">{new Date(scan.timestamp).toLocaleDateString('ko-KR')}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <button
-          onClick={() => onNavigate(PAGES.ALLERGIES)}
-          className="w-full py-3 px-4 bg-gray-700 text-white font-bold rounded-xl hover:bg-gray-600 transition font-sans-kr"
-      >
-          알레르기 프로필 수정하기
-      </button>
-    </div>
-  );
-};
+// ProfileView는 이제 알레르기 설정 페이지로 대체됩니다.
 
 const HomeView = ({ onNavigate }) => (
     <div className="p-8 space-y-12 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
@@ -350,8 +278,6 @@ const InfoView = () => (
 
 // Main Application Component
 const App = () => {
-  // State for Firebase - 모두 제거
-  
   // isAuthReady 상태는 이제 항상 true입니다.
   const [isAuthReady] = useState(true); 
 
@@ -404,6 +330,7 @@ const App = () => {
     
     // 5. 스캔 기록 저장 (로컬 상태 업데이트)
     const newScan = { status: result.status, timestamp: Date.now(), ...result };
+    // 스캔 기록을 로컬 상태에 누적 저장
     setScanHistory(prevHistory => [newScan, ...prevHistory.slice(0, 9)]); // 최대 10개 기록 유지
   };
   
@@ -490,8 +417,16 @@ const App = () => {
   const navItems = [
       { page: PAGES.HOME, icon: '🏠', title: '홈' },
       { page: PAGES.SCAN, icon: '🔍', title: 'AI 스캔' },
-      { page: PAGES.PROFILE, icon: '👤', title: '프로필' },
+      { page: PAGES.ALLERGIES, icon: '⚙️', title: '설정' }, // ALLERGIES 페이지로 바로 연결하도록 수정
       { page: PAGES.INFO, icon: '💡', title: '정보' },
+  ];
+  
+  // ProfileView 대신 ALLERGIES를 메인 탭으로 사용하므로, navItems에서 PROFILE을 제거하고 ALLERGIES의 아이콘을 수정합니다.
+  const finalNavItems = [
+    { page: PAGES.HOME, icon: '🏠', title: '홈' },
+    { page: PAGES.SCAN, icon: '🔍', title: 'AI 스캔' },
+    { page: PAGES.ALLERGIES, icon: '👤', title: '프로필' }, // '프로필' 탭 클릭 시 설정 페이지로 이동
+    { page: PAGES.INFO, icon: '💡', title: '정보' },
   ];
 
   // The main UI structure for a mobile-like web app
@@ -521,7 +456,7 @@ const App = () => {
                 
                 {/* Desktop Navigation Links */}
                 <div className="hidden md:flex space-x-6">
-                    {navItems.map(item => (
+                    {finalNavItems.map(item => (
                         <a
                             key={item.page}
                             href="#"
@@ -539,9 +474,9 @@ const App = () => {
                 {/* 로그인/로그아웃 버튼 대신 프로필 이동 버튼만 남깁니다. */}
                 <button 
                     className="text-sm font-bold bg-violet-600 text-white py-2 px-4 rounded-lg hover:bg-violet-700 transition font-sans-kr"
-                    onClick={() => setCurrentPage(PAGES.PROFILE)}
+                    onClick={() => setCurrentPage(PAGES.ALLERGIES)}
                 >
-                    프로필 보기
+                    알레르기 설정
                 </button>
             </div>
         </nav>
@@ -553,7 +488,7 @@ const App = () => {
         
         {/* Mobile Footer/Bottom Navigation (Hidden on Desktop) */}
         <footer className="md:hidden flex justify-around border-t border-gray-800 bg-gray-900 sticky bottom-0 z-10">
-            {navItems.map(item => (
+            {finalNavItems.map(item => (
                 <button
                     key={item.page}
                     onClick={() => setCurrentPage(item.page)}
