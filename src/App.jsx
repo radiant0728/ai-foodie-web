@@ -455,14 +455,19 @@ const App = () => {
         setIsAuthReady(true); // 인증 체크 완료
       });
 
-      authenticate();
+      // 🚨🚨🚨 자동 인증 호출 제거: 이 부분을 제거하여 친구의 로그인 문제를 해결합니다. 🚨🚨🚨
+      // authenticate(); // <--- 이 줄을 삭제합니다.
+
+      // 대신, 인증 상태 리스너가 준비되면 UI를 먼저 띄웁니다.
+      // 리스너는 onAuthStateChanged 내에서 이미 isAuthReady를 설정하므로 문제가 없습니다.
+
       return () => unsubscribe();
 
     } catch (error) {
       console.error("Error initializing Firebase:", error);
       setIsAuthReady(true);
     }
-  }, []);
+  }, []); // 🚨🚨🚨 이 useEffect 블록 전체를 복원하여 로그인/로그아웃 기능을 다시 활성화했습니다. 🚨🚨🚨
 
   // --- Firestore: Load User Data & Scan History (실시간 리스너 사용) ---
   useEffect(() => {
@@ -573,6 +578,7 @@ const App = () => {
           return;
       }
       try {
+          // 사용자가 버튼을 눌렀을 때만 익명 로그인 시도
           await signInAnonymously(auth);
       } catch (error) {
           console.error("Anonymous login failed:", error);
@@ -656,7 +662,7 @@ const App = () => {
                 scanHistory={scanHistory} 
                 onNavigate={setCurrentPage} 
                 onLogout={handleLogout}
-                onLogin={handleLogin} // 🚨🚨🚨 handleLogin 함수를 ProfileView에 전달합니다.
+                onLogin={handleLogin} // handleLogin 함수를 ProfileView에 전달합니다.
             />
         );
       case PAGES.INFO:
