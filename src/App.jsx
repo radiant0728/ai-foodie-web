@@ -1,7 +1,7 @@
 /* eslint-disable no-undef */ 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-// Firebase Imports: 로그인/저장 기능이 완전히 제거되었으므로, 모든 import를 삭제합니다.
+// Firebase Imports: 모두 제거되었습니다.
 
 // --- Global Variables (사용하지 않으므로 더미 값으로 초기화) ---
 const appId = 'default-app-id';
@@ -14,7 +14,7 @@ const initialAuthToken = null;
 const PAGES = {
   HOME: 'home',       // 메인 대시보드
   SCAN: 'scan',       // 메인 기능
-  ALLERGIES: 'allergies', // 메인 프로필 설정 탭
+  ALLERGIES: 'allergies', // 알레르기 설정 탭
   INFO: 'info',       // 회사 정보, FAQ
   // 서브 페이지: 스캔 흐름
   LOADING: 'loading',
@@ -179,6 +179,9 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
   );
 };
 
+// ProfileView는 사용하지 않으므로 삭제합니다.
+// ...
+
 const HomeView = ({ onNavigate }) => (
     <div className="p-8 space-y-12 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
         
@@ -238,7 +241,7 @@ const FeatureCard = ({ title, description, icon }) => (
         <div className="text-4xl mb-2">{icon}</div>
         <h3 className="text-xl font-bold text-white font-sans-kr">{title}</h3>
         <p className="text-gray-400 text-sm font-sans-kr">{description}</p>
-        <button className="text-violet-400 text-sm font-semibold mt-2 font-sans-kr hover:underline">자세히 보기 &gt;</button>
+        {/* 🚨🚨🚨 '자세히 보기' 버튼을 완전히 제거했습니다. 🚨🚨🚨 */}
     </div>
 );
 
@@ -396,13 +399,6 @@ const App = () => {
             onContinue={handleAllergySaveAndContinue}
           />
         );
-      case PAGES.PROFILE: // 프로필 뷰는 이제 로그인 없이 스캔 기록만 보여줍니다.
-        return (
-            <ProfileView 
-                scanHistory={scanHistory} 
-                onNavigate={setCurrentPage} 
-            />
-        );
       case PAGES.INFO:
           return <InfoView />;
       default:
@@ -412,14 +408,6 @@ const App = () => {
     }
   };
 
-  const navItems = [
-      { page: PAGES.HOME, icon: '🏠', title: '홈' },
-      { page: PAGES.SCAN, icon: '🔍', title: 'AI 스캔' },
-      { page: PAGES.ALLERGIES, icon: '⚙️', title: '설정' }, // ALLERGIES 페이지로 바로 연결하도록 수정
-      { page: PAGES.INFO, icon: '💡', title: '정보' },
-  ];
-  
-  // ProfileView 대신 ALLERGIES를 메인 탭으로 사용하므로, navItems에서 PROFILE을 제거하고 ALLERGIES의 아이콘을 수정합니다.
   const finalNavItems = [
     { page: PAGES.HOME, icon: '🏠', title: '홈' },
     { page: PAGES.SCAN, icon: '🔍', title: 'AI 스캔' },
@@ -469,13 +457,7 @@ const App = () => {
                     ))}
                 </div>
                 
-                {/* 로그인/로그아웃 버튼 대신 프로필 이동 버튼만 남깁니다. */}
-                <button 
-                    className="text-sm font-bold bg-violet-600 text-white py-2 px-4 rounded-lg hover:bg-violet-700 transition font-sans-kr"
-                    onClick={() => setCurrentPage(PAGES.ALLERGIES)}
-                >
-                    알레르기 설정
-                </button>
+                {/* 🚨🚨🚨 상단 '알레르기 설정' 버튼을 완전히 제거했습니다. 🚨🚨🚨 */}
             </div>
         </nav>
         
