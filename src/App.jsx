@@ -183,7 +183,7 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
   );
 };
 
-const ProfileView = ({ user, scanHistory, onNavigate, onLogout }) => {
+const ProfileView = ({ user, scanHistory, onNavigate, onLogout, onLogin }) => {
   const totalScans = scanHistory.length;
   const lastScan = totalScans > 0 ? new Date(scanHistory[0].timestamp).toLocaleDateString('ko-KR') : '없음';
 
@@ -206,8 +206,9 @@ const ProfileView = ({ user, scanHistory, onNavigate, onLogout }) => {
         <p className="text-lg font-semibold text-white font-sans-kr">
           환영합니다, <span className="text-violet-400">{user.isLoggedIn ? user.userId.substring(0, 8) + '...' : '방문자'}</span>님!
         </p>
+        {/* 🚨 로그인/로그아웃 버튼 수정: onLogin 함수 연결 */}
         <button
-            onClick={user.isLoggedIn ? onLogout : () => { /* 로그인/회원가입 모달 열기 로직 */ }}
+            onClick={user.isLoggedIn ? onLogout : onLogin}
             className={`py-2 px-4 rounded-lg text-sm font-bold transition duration-150 font-sans-kr
                 ${user.isLoggedIn ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
         >
@@ -563,6 +564,20 @@ const App = () => {
           console.error("Logout failed:", error);
       }
   }, [auth]);
+  
+  // --- Login Handler (새롭게 추가) ---
+  const handleLogin = useCallback(async () => {
+      if (!auth) {
+          // Firebase가 초기화되지 않았을 경우 경고만 표시하고 리턴
+          console.warn("Firebase Auth not available.");
+          return;
+      }
+      try {
+          await signInAnonymously(auth);
+      } catch (error) {
+          console.error("Anonymous login failed:", error);
+      }
+  }, [auth]);
 
 
   // --- Navigation & Flow Handlers ---
@@ -641,6 +656,7 @@ const App = () => {
                 scanHistory={scanHistory} 
                 onNavigate={setCurrentPage} 
                 onLogout={handleLogout}
+                onLogin={handleLogin} // 🚨🚨🚨 handleLogin 함수를 ProfileView에 전달합니다.
             />
         );
       case PAGES.INFO:
