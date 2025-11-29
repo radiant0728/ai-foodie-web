@@ -1,16 +1,15 @@
 /* eslint-disable no-undef */ 
 import React, { useState, useEffect, useCallback } from 'react';
 
-// Firebase Imports
-// (Firebase 라이브러리 import는 doc, setDoc 사용을 위해 유지)
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+// Firebase Imports: 사용하지 않으므로 제거합니다. (Firestore 관련 오류 방지)
+// import { initializeApp } from 'firebase/app';
+// import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+// import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
-// --- Global Variables for Canvas Environment (MUST BE USED) ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? initialAuthToken : null;
+// --- Global Variables (사용하지 않으므로 제거) ---
+const appId = 'default-app-id';
+const firebaseConfig = null;
+const initialAuthToken = null;
 // --- End Global Variables ---
 
 
@@ -118,7 +117,7 @@ const CameraInput = ({ onScan }) => {
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.867-1.299A2 2 0 0111.07 4h1.861c.42 0 .813.195 1.07.51L15.405 6.11a2 2 0 001.664.89h.93a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
         <span className="text-lg font-semibold text-gray-600">사진 업로드</span>
         
@@ -197,12 +196,13 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue, isS
 
 // Main Application Component
 const App = () => {
-  // State for Firebase
+  // State for Firebase (사용하지 않으므로 제거)
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
-  // isAuthReady 상태는 UI를 먼저 띄우기 위해 사용됩니다.
-  const [isAuthReady, setIsAuthReady] = useState(false); 
+  
+  // isAuthReady 상태는 이제 항상 true입니다.
+  const [isAuthReady, setIsAuthReady] = useState(true); 
 
   // State for App Logic
   const [currentPage, setCurrentPage] = useState(PAGES.ALLERGIES);
@@ -217,49 +217,17 @@ const App = () => {
 
 
   // --- Firebase Initialization and Authentication ---
-  // 🚨🚨🚨 이 useEffect 블록 전체를 삭제하여 인증 시도를 완전히 막습니다. 🚨🚨🚨
-  useEffect(() => {
-    // 앱이 실행되자마자 isAuthReady를 true로 설정하여 UI를 먼저 렌더링합니다. (로그인 오류 해결)
-    setIsAuthReady(true); 
-  }, []); // 🚨🚨🚨 인증 관련 코드를 모두 삭제하고, isAuthReady만 true로 설정합니다. 🚨🚨🚨
-
-  // --- Firestore: Load User Allergies on Auth Ready ---
-  // 🚨🚨🚨 이 useEffect 블록 전체를 삭제합니다. (Firestore 리스너가 문제의 근원) 🚨🚨🚨
-  // 이 블록은 Firebase 인증과 데이터 로드 로직을 포함하고 있었으나, 
-  // 공개 접속을 위해 인증 코드를 제거했으므로, 이 블록 역시 완전히 제거해야 합니다.
-  useEffect(() => {
-    if (!isAuthReady || !db || !userId) return;
-
-    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'allergies', 'current');
-    
-    // onSnapshot listener for real-time updates
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const savedAllergies = data.allergies || [];
-        setUserAllergies(savedAllergies);
-        console.log("Allergies loaded successfully:", savedAllergies);
-      } else {
-        console.log("No existing allergy data found. Using default empty list.");
-      }
-    }, (error) => {
-      console.error("Error fetching allergy data:", error);
-    });
-
-    return () => unsubscribe(); // Cleanup listener
-
-  }, [isAuthReady, db, userId]); // 🚨🚨🚨 이 블록 전체를 삭제해야 합니다. 🚨🚨🚨
+  // 인증 및 데이터 로드 관련 useEffect 블록은 모두 제거되었습니다.
 
   // --- Firestore: Save User Allergies ---
   const saveAllergies = useCallback(async (newAllergies) => {
-    // 🚨🚨🚨 로컬 환경 우회 로직만 남기고, 실제 Firestore 코드는 제거합니다. 🚨🚨🚨
-    // Firestore 인증 문제가 모두 해결되었으므로, 이제는 로컬 상태 업데이트만 수행하도록 간소화합니다.
+    // Firestore 로직을 제거하고, 로컬 상태 업데이트만 수행하도록 간소화
     setUserAllergies(newAllergies); 
     setCurrentPage(PAGES.CAMERA); 
     console.warn("Firebase save skipped. Proceeding to camera.");
-  }, []); // 의존성 배열에서 db, userId 제거
+  }, []); // 의존성 배열에서 db, userId를 제거하고 빈 배열로 설정
 
-  // --- API 연동 함수로 교체 ---
+  // --- API 연동 함수 ---
   const sendImageForScan = async (file) => {
     // 1. Move to loading state
     setCurrentPage(PAGES.LOADING);
@@ -341,7 +309,7 @@ const App = () => {
       case PAGES.CAMERA:
         return (
           <CameraInput
-            onScan={onScan}
+            onScan={handleScan}
           />
         );
       case PAGES.LOADING:
