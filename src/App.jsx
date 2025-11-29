@@ -10,10 +10,10 @@ const initialAuthToken = null;
 // --- End Global Variables ---
 
 
-// Define App Pages (PROFILE을 제거하고 ALLERGIES를 메인 탭으로 변경)
+// Define App Pages (핵심 기능 페이지)
 const PAGES = {
   HOME: 'home',       // 메인 대시보드
-  SCAN: 'scan',       // 메인 기능
+  SCAN: 'scan',       // 메인 기능 (Camera, Loading, Result 포함)
   ALLERGIES: 'allergies', // 알레르기 설정 탭
   INFO: 'info',       // 회사 정보, FAQ
   // 서브 페이지: 스캔 흐름
@@ -169,7 +169,7 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
       </div>
 
       <button
-        onClick={onContinue}
+        onClick={onContinue} // 👈 이 버튼이 handleAllergySaveAndContinue를 호출하고 SCAN으로 넘어갑니다.
         className="w-full py-3 px-4 text-white font-bold rounded-xl transition duration-150 bg-violet-600 hover:bg-violet-700 shadow-lg transform hover:scale-[1.01] font-sans-kr"
       >
         설정 완료 및 AI 스캔 시작
@@ -179,13 +179,10 @@ const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) =
   );
 };
 
-// ProfileView는 사용하지 않으므로 삭제합니다.
-// ...
-
 const HomeView = ({ onNavigate }) => (
     <div className="p-8 space-y-12 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
         
-        {/* 1. Hero Section (문구 수정: "IT 전문가를 위한" 제거) */}
+        {/* 1. Hero Section */}
         <div className="bg-black p-10 rounded-xl shadow-2xl border border-violet-900 text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full opacity-30 bg-cover" style={{backgroundImage: 'linear-gradient(135deg, rgba(120, 0, 255, 0.4), rgba(255, 0, 150, 0.4))', zIndex: 0}}></div>
             <div className="relative z-10">
@@ -196,7 +193,7 @@ const HomeView = ({ onNavigate }) => (
                     성분표 분석의 첫걸음, <br/> 지금 바로 당신의 안전을 확보하세요.
                 </p>
                 <button 
-                    onClick={() => onNavigate(PAGES.SCAN)}
+                    onClick={() => onNavigate(PAGES.ALLERGIES)} // HOME 버튼 클릭 시 ALLERGIES 페이지로 이동하도록 설정 
                     className="py-3 px-8 bg-violet-600 text-white font-bold rounded-full shadow-lg shadow-violet-500/50 hover:bg-violet-700 transition font-sans-kr transform hover:scale-105"
                 >
                     AI 분석 시작하기
@@ -206,42 +203,37 @@ const HomeView = ({ onNavigate }) => (
         
         {/* 2. Metrics Section (8000+, 3000+ style) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <div className="p-4 bg-gray-800 rounded-xl border border-gray-700 shadow-lg">
-                <p className="text-3xl font-bold text-violet-400 font-sans-kr">92%</p>
-                <p className="text-sm text-gray-400 font-sans-kr">분석 정확도</p>
-            </div>
-            <div className="p-4 bg-gray-800 rounded-xl border border-gray-700 shadow-lg">
-                <p className="text-3xl font-bold text-violet-400 font-sans-kr">3s</p>
-                <p className="text-sm text-gray-400 font-sans-kr">최소 응답 시간</p>
-            </div>
-            <div className="p-4 bg-gray-800 rounded-xl border border-gray-700 shadow-lg hidden lg:block">
-                <p className="text-3xl font-bold text-violet-400 font-sans-kr">10+</p>
-                <p className="text-sm text-gray-400 font-sans-kr">주요 알러지원</p>
-            </div>
-            <div className="p-4 bg-gray-800 rounded-xl border border-gray-700 shadow-lg hidden lg:block">
-                <p className="text-3xl font-bold text-violet-400 font-sans-kr">실시간</p>
-                <p className="text-sm text-gray-400 font-sans-kr">데이터 업데이트</p>
-            </div>
+            <MetricCard value="92%" label="분석 정확도" icon="✅"/>
+            <MetricCard value="3s" label="최소 응답 시간" icon="⏱️"/>
+            <MetricCard value="10+" label="주요 알러지원" icon="🛡️"/>
+            <MetricCard value="실시간" label="데이터 업데이트" icon="🔄"/>
         </div>
 
-        {/* 3. Feature Highlight Section (Class별 강좌 style) */}
+        {/* 3. Feature Highlight Section */}
         <div className="space-y-6">
             <h2 className="text-2xl font-bold text-white font-sans-kr border-l-4 border-violet-600 pl-3">AI-Foodie의 핵심 분석 서비스</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FeatureCard title="개인 맞춤형 프로필" icon="👤" description="민감도에 기반한 정확한 위험 예측"/>
-                <FeatureCard title="OCR 성분 인식" icon="📸" description="복잡한 성분표도 오류 없이 즉시 스캔"/>
-                <FeatureCard title="숨은 알러지원 탐지" icon="💡" description="미표기된 교차 오염 위험까지 분석"/>
+                <SimplifiedFeatureCard title="OCR 성분 인식" icon="📸" description="복잡한 성분표도 오류 없이 즉시 스캔"/>
+                <SimplifiedFeatureCard title="숨은 알러지원 탐지" icon="💡" description="미표기된 교차 오염 위험까지 분석"/>
+                <SimplifiedFeatureCard title="나의 알레르기 프로필" icon="👤" description="민감도에 기반한 정확한 위험 예측"/>
             </div>
         </div>
     </div>
 );
 
-const FeatureCard = ({ title, description, icon }) => (
+const MetricCard = ({ value, label, icon }) => (
+    <div className="p-6 bg-gray-800 rounded-xl border border-gray-700 shadow-xl space-y-2">
+        <div className="text-4xl text-violet-400 mb-2">{icon}</div>
+        <p className="text-4xl font-bold text-white font-sans-kr">{value}</p>
+        <p className="text-sm text-gray-400 font-sans-kr">{label}</p>
+    </div>
+);
+
+const SimplifiedFeatureCard = ({ title, description, icon }) => (
     <div className="p-5 bg-gray-800 rounded-xl border border-gray-700 shadow-xl space-y-2 hover:border-violet-500 transition duration-300">
-        <div className="text-4xl mb-2">{icon}</div>
+        <div className="text-4xl mb-2">{icon}</div> {/* 아이콘 추가 */}
         <h3 className="text-xl font-bold text-white font-sans-kr">{title}</h3>
         <p className="text-gray-400 text-sm font-sans-kr">{description}</p>
-        {/* 🚨🚨🚨 '자세히 보기' 버튼을 완전히 제거했습니다. 🚨🚨🚨 */}
     </div>
 );
 
@@ -287,8 +279,8 @@ const App = () => {
   const [scanState, setScanState] = useState(PAGES.CAMERA); 
   const [userAllergies, setUserAllergies] = useState([]);
   const [scanResult, setScanResult] = useState(null);
-  const [isSaving, setIsSaving] = useState(false); 
-  // 스캔 기록은 이제 로컬 세션에서만 관리되도록 초기화합니다.
+  const [isSaving] = useState(false); 
+  // 스캔 기록은 이제 로컬 세션에서만 관리되므로 초기화합니다.
   const [scanHistory, setScanHistory] = useState([]); 
   
   // --- API 연동 함수 (시뮬레이션만 남김) ---
@@ -339,8 +331,8 @@ const App = () => {
   const saveAllergies = useCallback(async (newAllergies) => {
     // 로컬 상태만 업데이트하고 스캔 흐름 시작
     setUserAllergies(newAllergies); 
-    setScanState(PAGES.CAMERA); 
-    setCurrentPage(PAGES.SCAN);
+    setScanState(PAGES.CAMERA); // 스캔 플로우 시작 지점으로 이동
+    setCurrentPage(PAGES.SCAN); // 메인 페이지를 스캔 탭으로 전환
   }, []); 
 
   // --- Navigation & Flow Handlers ---
@@ -411,7 +403,7 @@ const App = () => {
   const finalNavItems = [
     { page: PAGES.HOME, icon: '🏠', title: '홈' },
     { page: PAGES.SCAN, icon: '🔍', title: 'AI 스캔' },
-    { page: PAGES.ALLERGIES, icon: '👤', title: '프로필' }, // '프로필' 탭 클릭 시 설정 페이지로 이동
+    { page: PAGES.ALLERGIES, icon: '⚙️', title: '설정' }, 
     { page: PAGES.INFO, icon: '💡', title: '정보' },
   ];
 
@@ -436,28 +428,40 @@ const App = () => {
         {/* Top Header/Navigation Bar (Global Nav) */}
         <nav className="w-full bg-black/50 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
             <div className="max-w-6xl mx-auto flex justify-between items-center py-4 px-6">
-                <h1 className="text-2xl font-extrabold text-violet-400 font-sans-kr">
+                {/* 왼쪽 상단 AI-Foodie 버튼 클릭 시 홈화면으로 이동 */}
+                <h1 
+                    className="text-2xl font-extrabold text-violet-400 font-sans-kr cursor-pointer hover:text-white transition duration-150"
+                    onClick={() => setCurrentPage(PAGES.HOME)}
+                >
                     AI-Foodie <span className="text-gray-600 text-sm font-medium ml-2">v1.0</span>
                 </h1>
                 
-                {/* Desktop Navigation Links */}
+                {/* Desktop Navigation Links (AI 스캔, 설정 제거) */}
                 <div className="hidden md:flex space-x-6">
-                    {finalNavItems.map(item => (
-                        <a
-                            key={item.page}
-                            href="#"
-                            onClick={(e) => { e.preventDefault(); setCurrentPage(item.page); }}
-                            className={`text-sm font-semibold transition duration-150 py-1 px-2 rounded-lg font-sans-kr
-                                ${currentPage === item.page 
-                                    ? 'text-white bg-violet-700/50' 
-                                    : 'text-gray-300 hover:text-violet-400 hover:bg-gray-800'}`}
-                        >
-                            {item.title}
-                        </a>
-                    ))}
+                    {/* 상단바에서 'AI 스캔'과 '설정' 링크를 제거하고 '홈'과 '정보'만 남깁니다. */}
+                    <a
+                        href="#"
+                        onClick={(e) => { e.preventDefault(); setCurrentPage(PAGES.HOME); }}
+                        className={`text-sm font-semibold transition duration-150 py-1 px-2 rounded-lg font-sans-kr
+                            ${currentPage === PAGES.HOME 
+                                ? 'text-white bg-violet-700/50' 
+                                : 'text-gray-300 hover:text-violet-400 hover:bg-gray-800'}`}
+                    >
+                        홈
+                    </a>
+                    <a
+                        href="#"
+                        onClick={(e) => { e.preventDefault(); setCurrentPage(PAGES.INFO); }}
+                        className={`text-sm font-semibold transition duration-150 py-1 px-2 rounded-lg font-sans-kr
+                            ${currentPage === PAGES.INFO 
+                                ? 'text-white bg-violet-700/50' 
+                                : 'text-gray-300 hover:text-violet-400 hover:bg-gray-800'}`}
+                    >
+                        정보
+                    </a>
                 </div>
                 
-                {/* 🚨🚨🚨 상단 '알레르기 설정' 버튼을 완전히 제거했습니다. 🚨🚨🚨 */}
+                {/* 상단 버튼은 이미 제거되었습니다. */}
             </div>
         </nav>
         
