@@ -270,6 +270,7 @@ const InfoView = () => (
  * ========================================================================= */
 
 // Main Application Component
+// Main Application Component
 const App = () => {
   // isAuthReady 상태는 이제 항상 true입니다.
   const [isAuthReady] = useState(true); 
@@ -277,11 +278,44 @@ const App = () => {
   // State for App Logic
   const [currentPage, setCurrentPage] = useState(PAGES.HOME); 
   const [scanState, setScanState] = useState(PAGES.CAMERA); 
-  const [userAllergies, setUserAllergies] = useState([]);
   const [scanResult, setScanResult] = useState(null);
   const [isSaving] = useState(false); 
-  // 스캔 기록은 이제 로컬 세션에서만 관리되므로 초기화합니다.
-  const [scanHistory, setScanHistory] = useState([]); 
+
+  /* -----------------------------------------------------------
+   * [수정됨] LocalStorage 연동: 새로고침해도 데이터가 유지되도록 변경
+   * ----------------------------------------------------------- */
+  
+  // 1. userAllergies: 저장된 값이 있으면 불러오고, 없으면 빈 배열 []
+  const [userAllergies, setUserAllergies] = useState(() => {
+    try {
+      const saved = localStorage.getItem('userAllergies');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("알레르기 정보 로드 실패", e);
+      return [];
+    }
+  });
+
+  // 2. scanHistory: 저장된 값이 있으면 불러오고, 없으면 빈 배열 []
+  const [scanHistory, setScanHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('scanHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("스캔 기록 로드 실패", e);
+      return [];
+    }
+  });
+
+  // 3. useEffect: userAllergies가 변할 때마다 자동으로 저장
+  useEffect(() => {
+    localStorage.setItem('userAllergies', JSON.stringify(userAllergies));
+  }, [userAllergies]);
+
+  // 4. useEffect: scanHistory가 변할 때마다 자동으로 저장
+  useEffect(() => {
+    localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
+  }, [scanHistory]);
   
   // --- API 연동 함수 (시뮬레이션만 남김) ---
   const sendImageForScan = async (file) => {
