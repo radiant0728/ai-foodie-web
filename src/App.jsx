@@ -1,524 +1,472 @@
-/* eslint-disable no-undef */ 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+/* eslint-disable no-undef */
+import React, { useState, useEffect, useRef } from 'react';
 
-// Firebase Imports: 모두 제거되었습니다.
-
-// --- Global Variables (사용하지 않으므로 더미 값으로 초기화) ---
-const appId = 'default-app-id';
-const firebaseConfig = null;
-const initialAuthToken = null;
-// --- End Global Variables ---
-
-
-// Define App Pages (핵심 기능 페이지)
+// --- Global Constants ---
 const PAGES = {
-  HOME: 'home',       // 메인 대시보드
-  SCAN: 'scan',       // 메인 기능 (Camera, Loading, Result 포함)
-  ALLERGIES: 'allergies', // 알레르기 설정 탭
-  INFO: 'info',       // 회사 정보, FAQ
-  // 서브 페이지: 스캔 흐름
+  AUTH: 'auth',        // 로그인/회원가입 화면
+  HOME: 'home',        // 메인 대시보드
+  SCAN: 'scan',        // 카메라/스캔
+  HISTORY: 'history',  // 기록 보관함
+  ALLERGIES: 'allergies',
+  INFO: 'info',
   LOADING: 'loading',
   RESULT: 'result',
 };
 
-// Common Allergens List
 const ALLERGEN_OPTIONS = [
-  '우유 (Milk)', '땅콩 (Peanuts)', '밀 (Wheat)', '계란 (Egg)',
-  '대두 (Soy)', '견과류 (Tree Nuts)', '새우 (Shrimp)', '게 (Crab)',
-  '복숭아 (Peach)', '토마토 (Tomato)'
+  '우유', '땅콩', '밀', '계란', '대두', '견과류', '새우', '게', '복숭아', '토마토'
 ];
 
 /* =========================================================================
- * SUB-COMPONENTS (Feature & Display)
+ * SUB-COMPONENTS
  * ========================================================================= */
 
-const ResultDisplay = ({ result, onRestart }) => {
-  const { status, message, detail } = result;
+// 1. [NEW] 자체 회원가입/로그인 컴포넌트
+const AuthView = ({ onLogin }) => {
+  const [isLoginMode, setIsLoginMode] = useState(true); // true: 로그인, false: 회원가입
+  
+  // 입력 상태
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState(''); // 회원가입 시에만 사용
+  const [error, setError] = useState('');
 
-  const colorMap = {
-    SAFE: { bg: 'bg-green-600', text: 'text-gray-100', accent: 'text-green-300', border: 'border-green-600', icon: '✅' },
-    CAUTION: { bg: 'bg-yellow-600', text: 'text-gray-900', accent: 'text-yellow-300', border: 'border-yellow-600', icon: '⚠️' },
-    DANGER: { bg: 'bg-red-600', text: 'text-gray-100', accent: 'text-red-300', border: 'border-red-600', icon: '❌' },
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+
+    // 유효성 검사
+    if (!email || !password) {
+      setError('모든 필드를 입력해주세요.');
+      return;
+    }
+    if (!isLoginMode && !name) {
+      setError('이름을 입력해주세요.');
+      return;
+    }
+
+    // 상위 컴포넌트로 데이터 전달
+    const success = onLogin(isLoginMode, { email, password, name });
+    if (!success) {
+      setError(isLoginMode ? '아이디 또는 비밀번호가 틀렸습니다.' : '이미 존재하는 이메일입니다.');
+    }
   };
 
-  const { bg, text, border, icon } = colorMap[status] || colorMap.SAFE;
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-100px)] bg-gray-900 p-6 space-y-8">
+      <div className="text-center space-y-2">
+        <h1 className="text-4xl font-extrabold text-violet-400 font-sans-kr">AI-Foodie</h1>
+        <p className="text-gray-400 font-sans-kr">
+          {isLoginMode ? '나만의 알레르기 주치의' : '새로운 계정 만들기'}
+        </p>
+      </div>
+
+      <div className="w-full max-w-sm bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {/* 회원가입일 때만 이름 입력 */}
+          {!isLoginMode && (
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">이름</label>
+              <input 
+                type="text" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+                placeholder="홍길동"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">이메일</label>
+            <input 
+              type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+              placeholder="example@email.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">비밀번호</label>
+            <input 
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white focus:border-violet-500 outline-none"
+              placeholder="••••••••"
+            />
+          </div>
+
+          {error && <p className="text-red-400 text-sm text-center font-bold">{error}</p>}
+
+          <button
+            type="submit"
+            className="w-full py-3.5 rounded-lg bg-violet-600 text-white font-bold text-lg hover:bg-violet-700 transition shadow-lg mt-4"
+          >
+            {isLoginMode ? '로그인' : '회원가입'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-400">
+            {isLoginMode ? '계정이 없으신가요?' : '이미 계정이 있으신가요?'}
+          </p>
+          <button 
+            onClick={() => { setIsLoginMode(!isLoginMode); setError(''); }}
+            className="text-violet-400 font-bold hover:underline text-sm mt-1"
+          >
+            {isLoginMode ? '회원가입 하러가기' : '로그인 하러가기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 2. 기록 보관함
+const HistoryView = ({ history }) => {
+  if (!history || history.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-gray-500">
+        <div className="text-4xl mb-4">📂</div>
+        <p>저장된 분석 기록이 없습니다.</p>
+        <p className="text-sm">첫 스캔을 시작해보세요!</p>
+      </div>
+    );
+  }
 
   return (
-    <div className={`flex flex-col items-center justify-center p-8 space-y-6 rounded-xl ${bg} shadow-2xl mx-auto w-full max-w-md`}>
-      <div className={`p-6 rounded-full bg-black/30 border-4 ${border} shadow-xl transform transition duration-500 hover:scale-105`}>
-        <div className="text-6xl">{icon}</div>
+    <div className="p-6 pb-20 space-y-6 bg-gray-900 min-h-[calc(100vh-100px)]">
+      <h2 className="text-2xl font-bold text-white font-sans-kr">📋 나의 분석 기록</h2>
+      <div className="space-y-4">
+        {history.map((item) => (
+          <div key={item.id} className="bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700 flex flex-col">
+            <div className="flex justify-between items-center p-4 bg-gray-700/30 border-b border-gray-700">
+              <span className="text-gray-300 text-sm font-sans-kr">
+                {new Date(item.timestamp).toLocaleDateString()} <span className="text-gray-500">|</span> {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </span>
+              <span className={`px-2 py-1 rounded text-xs font-bold ${item.status === 'SAFE' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                {item.status === 'SAFE' ? '안전' : '위험'}
+              </span>
+            </div>
+            <div className="p-4 flex gap-4">
+              <div className="w-16 h-16 bg-gray-900 rounded-lg flex items-center justify-center text-2xl border border-gray-600">
+                {item.status === 'SAFE' ? '🥦' : '🥜'}
+              </div>
+              <div className="flex-1">
+                 <h3 className="text-white font-bold mb-1 font-sans-kr">{item.message}</h3>
+                 {item.detail && (
+                   <p className="text-xs text-gray-400">검출: {item.detail.join(', ')}</p>
+                 )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-      <h1 className={`text-3xl font-extrabold ${text} text-center font-sans-kr`}>
-        {status === 'SAFE' && '안전 (Safe)'}
-        {status === 'CAUTION' && '주의 (Caution)'}
-        {status === 'DANGER' && '위험 (Danger)'}
-      </h1>
-      <p className={`text-xl text-gray-200 text-center max-w-sm font-sans-kr`}>{message}</p>
+    </div>
+  );
+};
 
-      {status !== 'SAFE' && detail && (
-        <div className="w-full max-w-md p-4 bg-gray-800 rounded-lg shadow-inner border border-gray-700">
-          <h2 className="text-lg font-semibold mb-2 text-white font-sans-kr">검출된 알레르기 성분:</h2>
-          <ul className="list-disc list-inside space-y-1 text-gray-300 font-sans-kr">
-            {detail.map((item, index) => (
-              <li key={index} className="flex items-start">
-                <span className="text-red-300 font-bold mr-2">•</span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
+// 3. 결과 표시 및 카메라
+const ResultDisplay = ({ result, onRestart }) => {
+  const { status, message, detail } = result;
+  const colorMap = {
+    SAFE: { bg: 'bg-green-600', text: 'text-gray-100', icon: '✅' },
+    CAUTION: { bg: 'bg-yellow-600', text: 'text-gray-900', icon: '⚠️' },
+    DANGER: { bg: 'bg-red-600', text: 'text-gray-100', icon: '❌' },
+  };
+  const { bg, text, icon } = colorMap[status] || colorMap.SAFE;
+
+  return (
+    <div className={`flex flex-col items-center justify-center p-8 space-y-6 rounded-xl ${bg} shadow-2xl mx-auto w-full max-w-md mt-10`}>
+      <div className="text-6xl">{icon}</div>
+      <h1 className={`text-3xl font-extrabold ${text} text-center`}>
+        {status === 'SAFE' ? '안전' : '위험'}
+      </h1>
+      <p className={`text-xl text-gray-200 text-center`}>{message}</p>
+      
+      {detail && (
+         <div className="bg-black/20 p-4 rounded-lg w-full">
+            <p className="text-sm font-bold text-white mb-1">검출 성분:</p>
+            <p className="text-sm text-gray-200">{detail.join(', ')}</p>
+         </div>
       )}
 
-      <button
-        onClick={onRestart}
-        className="mt-8 w-full max-w-sm py-3 px-4 bg-violet-600 text-white font-bold rounded-xl shadow-lg hover:bg-violet-700 transition duration-150 transform hover:scale-[1.02] font-sans-kr"
-      >
-        새로운 성분표 촬영
+      <button onClick={onRestart} className="mt-8 w-full py-3 bg-white text-gray-900 font-bold rounded-xl shadow-lg">
+        확인 (저장됨)
       </button>
     </div>
   );
 };
 
 const CameraInput = ({ onScan }) => {
-  const fileInputRef = useRef(null); 
-
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      onScan(file);
-    }
-  };
-  
-  const triggerFileInput = () => {
-    if (fileInputRef.current) { 
-      fileInputRef.current.click();
-    } else {
-      console.error("File input element is not ready.");
-    }
-  };
-
-
+  const fileInputRef = useRef(null);
   return (
-    <div className="flex flex-col items-center justify-center p-6 space-y-8 h-full bg-gray-900 text-white">
-      <h1 className="text-3xl font-bold text-violet-400 font-sans-kr">📸 AI 성분 스캔</h1>
-      <p className="text-gray-400 text-center max-w-xs font-sans-kr">식품 성분표를 촬영하거나 파일을 업로드하여 즉시 분석합니다.</p>
-
-      <div
-        onClick={triggerFileInput} 
-        className="w-full max-w-xs cursor-pointer flex flex-col items-center justify-center p-12 border-4 border-dashed border-violet-700 rounded-2xl bg-gray-800 hover:bg-gray-700 transition duration-150 shadow-2xl"
+    <div className="flex flex-col items-center justify-center p-6 space-y-8 h-full bg-gray-900 text-white min-h-[60vh]">
+      <div 
+        onClick={() => fileInputRef.current.click()} 
+        className="w-full max-w-xs cursor-pointer flex flex-col items-center justify-center p-12 border-4 border-dashed border-violet-700 rounded-2xl bg-gray-800 hover:bg-gray-700 transition"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-violet-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.867-1.299A2 2 0 0111.07 4h1.861c.42 0 .813.195 1.07.51L15.405 6.11a2 2 0 001.664.89h.93a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <span className="text-xl font-semibold text-white font-sans-kr">성분표 업로드</span>
-        
-        <input
-          ref={fileInputRef} 
-          id="camera-input"
-          type="file"
-          accept="image/*"
-          capture="environment" 
-          onChange={handleFileChange}
-          className="hidden"
-        />
+        <div className="text-5xl mb-4">📸</div>
+        <span className="text-xl font-bold">성분표 촬영하기</span>
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files[0] && onScan(e.target.files[0])} />
       </div>
-
-      <button
-        onClick={() => onScan({ name: 'placeholder.jpg', size: 100 })}
-        className="mt-4 text-sm text-gray-500 hover:text-gray-400 transition duration-150 font-sans-kr"
-      >
-        (테스트용: 즉시 결과 시뮬레이션)
+      <button onClick={() => onScan(null)} className="text-gray-500 underline text-sm">
+        (테스트: 카메라 없이 바로 결과 보기)
       </button>
     </div>
   );
 };
 
-const AllergySelector = ({ selectedAllergies, onSelectionChange, onContinue }) => {
-  const isSelected = (allergen) => selectedAllergies.includes(allergen);
-
-  const handleToggle = (allergen) => {
-    let newSelection;
-    if (isSelected(allergen)) {
-      newSelection = selectedAllergies.filter(a => a !== allergen);
-    } else {
-      newSelection = [...selectedAllergies, allergen];
-    }
-    onSelectionChange(newSelection);
+const AllergySelector = ({ selectedAllergies, onSelectionChange, onSave }) => {
+  const handleToggle = (a) => {
+    if (selectedAllergies.includes(a)) onSelectionChange(selectedAllergies.filter(i => i !== a));
+    else onSelectionChange([...selectedAllergies, a]);
   };
 
   return (
     <div className="p-6 space-y-6 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
-      <h1 className="text-3xl font-bold text-violet-400 font-sans-kr">나의 알레르기 설정</h1>
-      <p className="text-gray-400 font-sans-kr">가지고 계신 알레르기 항목을 모두 선택해 주세요. 이 정보는 분석에 사용됩니다.</p>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-3 border border-gray-700 rounded-lg bg-gray-800">
-        {ALLERGEN_OPTIONS.map((allergen) => (
-          <div
-            key={allergen}
-            className={`p-3 text-sm font-medium rounded-lg cursor-pointer transition duration-150 shadow-md font-sans-kr
-              ${isSelected(allergen)
-                ? 'bg-red-600 text-white ring-2 ring-red-400'
-                : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
-              }`}
-            onClick={() => handleToggle(allergen)}
+      <h1 className="text-2xl font-bold text-violet-400">알레르기 정보 설정</h1>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {ALLERGEN_OPTIONS.map((item) => (
+          <div 
+            key={item} 
+            onClick={() => handleToggle(item)}
+            className={`p-3 rounded-lg cursor-pointer font-bold text-center transition ${selectedAllergies.includes(item) ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-300'}`}
           >
-            {allergen}
+            {item}
           </div>
         ))}
       </div>
-
-      <button
-        onClick={onContinue} // 👈 이 버튼이 handleAllergySaveAndContinue를 호출하고 SCAN으로 넘어갑니다.
-        className="w-full py-3 px-4 text-white font-bold rounded-xl transition duration-150 bg-violet-600 hover:bg-violet-700 shadow-lg transform hover:scale-[1.01] font-sans-kr"
-      >
-        설정 완료 및 AI 스캔 시작
-      </button>
-      <p className="text-xs text-gray-500 text-center font-sans-kr">알레르기 정보는 안전 진단을 위해 사용됩니다.</p>
+      <button onClick={onSave} className="w-full py-3 bg-violet-600 rounded-xl font-bold">저장하기</button>
     </div>
   );
 };
-
-const HomeView = ({ onNavigate }) => (
-    <div className="p-8 space-y-12 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
-        
-        {/* 1. Hero Section */}
-        <div className="bg-black p-10 rounded-xl shadow-2xl border border-violet-900 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-full opacity-30 bg-cover" style={{backgroundImage: 'linear-gradient(135deg, rgba(120, 0, 255, 0.4), rgba(255, 0, 150, 0.4))', zIndex: 0}}></div>
-            <div className="relative z-10">
-                <h1 className="text-5xl font-extrabold text-white mb-3 font-sans-kr leading-tight">
-                    당신의 식생활을 위한 <span className="text-violet-400">AI-Foodie</span>
-                </h1>
-                <p className="text-xl text-gray-300 mb-6 font-sans-kr">
-                    성분표 분석의 첫걸음, <br/> 지금 바로 당신의 안전을 확보하세요.
-                </p>
-                <button 
-                    onClick={() => onNavigate(PAGES.ALLERGIES)} // HOME 버튼 클릭 시 ALLERGIES 페이지로 이동하도록 설정 
-                    className="py-3 px-8 bg-violet-600 text-white font-bold rounded-full shadow-lg shadow-violet-500/50 hover:bg-violet-700 transition font-sans-kr transform hover:scale-105"
-                >
-                    AI 분석 시작하기
-                </button>
-            </div>
-        </div>
-        
-        {/* 2. Metrics Section (8000+, 3000+ style) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <MetricCard value="92%" label="분석 정확도" icon="✅"/>
-            <MetricCard value="3s" label="최소 응답 시간" icon="⏱️"/>
-            <MetricCard value="10+" label="주요 알러지원" icon="🛡️"/>
-            <MetricCard value="실시간" label="데이터 업데이트" icon="🔄"/>
-        </div>
-
-        {/* 3. Feature Highlight Section */}
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white font-sans-kr border-l-4 border-violet-600 pl-3">AI-Foodie의 핵심 분석 서비스</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <SimplifiedFeatureCard title="OCR 성분 인식" icon="📸" description="복잡한 성분표도 오류 없이 즉시 스캔"/>
-                <SimplifiedFeatureCard title="숨은 알러지원 탐지" icon="💡" description="미표기된 교차 오염 위험까지 분석"/>
-                <SimplifiedFeatureCard title="나의 알레르기 프로필" icon="👤" description="민감도에 기반한 정확한 위험 예측"/>
-            </div>
-        </div>
-    </div>
-);
-
-const MetricCard = ({ value, label, icon }) => (
-    <div className="p-6 bg-gray-800 rounded-xl border border-gray-700 shadow-xl space-y-2">
-        <div className="text-4xl text-violet-400 mb-2">{icon}</div>
-        <p className="text-4xl font-bold text-white font-sans-kr">{value}</p>
-        <p className="text-sm text-gray-400 font-sans-kr">{label}</p>
-    </div>
-);
-
-const SimplifiedFeatureCard = ({ title, description, icon }) => (
-    <div className="p-5 bg-gray-800 rounded-xl border border-gray-700 shadow-xl space-y-2 hover:border-violet-500 transition duration-300">
-        <div className="text-4xl mb-2">{icon}</div> {/* 아이콘 추가 */}
-        <h3 className="text-xl font-bold text-white font-sans-kr">{title}</h3>
-        <p className="text-gray-400 text-sm font-sans-kr">{description}</p>
-    </div>
-);
-
-const InfoView = () => (
-    <div className="p-6 space-y-8 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
-        <h1 className="text-3xl font-bold text-violet-400 border-b border-gray-700 pb-3 font-sans-kr">회사 정보 및 FAQ</h1>
-        
-        <div className="space-y-3">
-            <h2 className="text-xl font-semibold text-red-400 font-sans-kr">비전</h2>
-            <p className="text-gray-300 font-sans-kr">AI-Foodie는 알레르기 환자가 식품 선택의 자유와 안전을 동시에 누릴 수 있는 세상을 만드는 것을 목표로 합니다. AI 기술을 통해 일상의 불안감을 해소합니다.</p>
-        </div>
-        
-        <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-violet-400 font-sans-kr">자주 묻는 질문 (FAQ)</h2>
-            <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                <p className="font-medium text-white font-sans-kr">Q: 분석 정확도는 어느 정도인가요?</p>
-                <p className="text-sm text-gray-400 font-sans-kr">A: 시제품 테스트에서 92% 이상의 정확도를 보였습니다. (AI 접근 방법 섹션 참조)</p>
-            </div>
-            <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                <p className="font-medium text-white font-sans-kr">Q: API 서버 연결이 계속 실패합니다.</p>
-                <p className="text-sm text-red-400 font-sans-kr">A: 이는 서버 주소(IP) 또는 포트 포워딩/방화벽 설정 문제일 가능성이 높습니다. 백엔드 서버(FastAPI)가 `--host 0.0.0.0`로 실행 중인지 확인하고, 공유기 설정에서 8000번 포트를 열어주세요.</p>
-            </div>
-        </div>
-        
-        <footer className="text-center text-sm text-gray-600 pt-4 border-t border-gray-700 font-sans-kr">
-            © 2025 AI-Foodie. All rights reserved.
-        </footer>
-    </div>
-);
-
 
 /* =========================================================================
  * MAIN APP
  * ========================================================================= */
 
-// Main Application Component
-// Main Application Component
 const App = () => {
-  // isAuthReady 상태는 이제 항상 true입니다.
-  const [isAuthReady] = useState(true); 
-
-  // State for App Logic
-  const [currentPage, setCurrentPage] = useState(PAGES.HOME); 
-  const [scanState, setScanState] = useState(PAGES.CAMERA); 
+  const [currentUser, setCurrentUser] = useState(null); 
+  const [currentPage, setCurrentPage] = useState(PAGES.AUTH);
+  const [scanState, setScanState] = useState(PAGES.CAMERA);
   const [scanResult, setScanResult] = useState(null);
-  const [isSaving] = useState(false); 
 
-  /* -----------------------------------------------------------
-   * [수정됨] LocalStorage 연동: 새로고침해도 데이터가 유지되도록 변경
-   * ----------------------------------------------------------- */
-  
-  // 1. userAllergies: 저장된 값이 있으면 불러오고, 없으면 빈 배열 []
-  const [userAllergies, setUserAllergies] = useState(() => {
-    try {
-      const saved = localStorage.getItem('userAllergies');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error("알레르기 정보 로드 실패", e);
-      return [];
+  // 현재 로그인한 유저의 데이터
+  const [userAllergies, setUserAllergies] = useState([]);
+  const [history, setHistory] = useState([]);
+
+  // --- 1. 로그인/회원가입 로직 (LocalStorage 사용) ---
+  const handleAuth = (isLogin, data) => {
+    const { email, password, name } = data;
+    
+    // 로컬 스토리지에서 전체 유저 목록 불러오기
+    const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+
+    if (isLogin) {
+      // [로그인 로직]
+      const foundUser = users.find(u => u.email === email && u.password === password);
+      if (foundUser) {
+        loginUser(foundUser);
+        return true;
+      }
+      return false; // 로그인 실패
+    } else {
+      // [회원가입 로직]
+      if (users.some(u => u.email === email)) {
+        return false; // 이미 존재하는 이메일
+      }
+      const newUser = { id: Date.now().toString(), email, password, name };
+      const updatedUsers = [...users, newUser];
+      localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+      
+      loginUser(newUser); // 가입 후 자동 로그인
+      return true;
     }
-  });
+  };
 
-  // 2. scanHistory: 저장된 값이 있으면 불러오고, 없으면 빈 배열 []
-  const [scanHistory, setScanHistory] = useState(() => {
-    try {
-      const saved = localStorage.getItem('scanHistory');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error("스캔 기록 로드 실패", e);
-      return [];
-    }
-  });
+  const loginUser = (user) => {
+    setCurrentUser(user);
+    // 로그인 시 해당 유저의 데이터 로드
+    loadUserData(user.id);
+    setCurrentPage(PAGES.HOME);
+  };
 
-  // 3. useEffect: userAllergies가 변할 때마다 자동으로 저장
-  useEffect(() => {
-    localStorage.setItem('userAllergies', JSON.stringify(userAllergies));
-  }, [userAllergies]);
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setHistory([]);
+    setUserAllergies([]);
+    setCurrentPage(PAGES.AUTH);
+  };
 
-  // 4. useEffect: scanHistory가 변할 때마다 자동으로 저장
-  useEffect(() => {
-    localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
-  }, [scanHistory]);
+  // --- 2. 데이터 관리 (유저별 분리 저장) ---
   
-  // --- API 연동 함수 (시뮬레이션만 남김) ---
-  const sendImageForScan = async (file) => {
-    // 1. Move to loading state
+  // 유저 데이터 로드 함수
+  const loadUserData = (userId) => {
+    const savedAllergies = JSON.parse(localStorage.getItem(`allergies_${userId}`) || '[]');
+    const savedHistory = JSON.parse(localStorage.getItem(`history_${userId}`) || '[]');
+    setUserAllergies(savedAllergies);
+    setHistory(savedHistory);
+  };
+
+  // 유저 데이터 저장 (상태가 변경될 때마다 자동 저장)
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`allergies_${currentUser.id}`, JSON.stringify(userAllergies));
+    }
+  }, [userAllergies, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`history_${currentUser.id}`, JSON.stringify(history));
+    }
+  }, [history, currentUser]);
+
+
+  // --- 3. 스캔 및 판정 로직 ---
+  const processScan = async (file) => {
     setScanState(PAGES.LOADING);
-
-    // 2. Simulate network delay and processing
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // 3. Simulate API Response based on user's allergies
-    const hasCriticalAllergen = userAllergies.some(a => a.includes('땅콩') || a.includes('새우'));
-    const hasCautionAllergen = userAllergies.some(a => a.includes('우유') || a.includes('계란'));
-    
-    let result = {};
+    // 판정
+    const isDanger = userAllergies.some(a => ['땅콩', '새우', '게', '복숭아'].includes(a));
+    const resultData = isDanger 
+      ? { status: 'DANGER', message: '🚨 설정하신 위험 성분이 감지되었습니다!', detail: ['해당 알러지원 추출물'] }
+      : { status: 'SAFE', message: '✅ 알레르기 성분이 발견되지 않았습니다.', detail: null };
 
-    if (hasCriticalAllergen) {
-      result = {
-        status: 'DANGER',
-        message: '🚨 고객님이 선택하신 알레르기 성분 (땅콩 또는 새우)이 검출되었습니다.',
-        detail: ['땅콩 추출물 (Peanut Extract)', '글루텐 (Gluten)'],
-      };
-    } else if (hasCautionAllergen) {
-      result = {
-        status: 'CAUTION',
-        message: '⚠️ 알레르기 유발 가능 성분 또는 교차 오염 위험이 있는 성분이 확인되었습니다.',
-        detail: ['유청단백 (Whey Protein)', '난황액 (Egg Yolk Liquid)'],
-      };
-    } else {
-      result = {
-        status: 'SAFE',
-        message: '✅ 고객님의 알레르기 목록에 해당하는 위험 성분이 발견되지 않았습니다. 안심하고 섭취하셔도 좋습니다.',
-        detail: null,
-      };
-    }
-
-    // 4. Update state and move to result screen
-    setScanResult(result);
+    setScanResult(resultData);
     setScanState(PAGES.RESULT);
-    
-    // 5. 스캔 기록 저장 (로컬 상태 업데이트)
-    const newScan = { status: result.status, timestamp: Date.now(), ...result };
-    // 스캔 기록을 로컬 상태에 누적 저장
-    setScanHistory(prevHistory => [newScan, ...prevHistory.slice(0, 9)]); // 최대 10개 기록 유지
-  };
-  
-  // --- Save User Allergies (로그인 없이 로컬 상태만 사용) ---
-  const saveAllergies = useCallback(async (newAllergies) => {
-    // 로컬 상태만 업데이트하고 스캔 흐름 시작
-    setUserAllergies(newAllergies); 
-    setScanState(PAGES.CAMERA); // 스캔 플로우 시작 지점으로 이동
-    setCurrentPage(PAGES.SCAN); // 메인 페이지를 스캔 탭으로 전환
-  }, []); 
 
-  // --- Navigation & Flow Handlers ---
-  const handleAllergySelectionChange = (newAllergies) => {
-    setUserAllergies(newAllergies);
+    // 기록 추가 (최신순)
+    if (currentUser) {
+      const newRecord = {
+        id: Date.now(),
+        timestamp: Date.now(),
+        ...resultData
+      };
+      setHistory(prev => [newRecord, ...prev]);
+    }
   };
 
-  const handleAllergySaveAndContinue = () => {
-    saveAllergies(userAllergies); 
-  };
-  
-  const handleScan = (file) => {
-    sendImageForScan(file);
-  };
-  
-  const handleRestart = () => {
-    setScanResult(null);
-    setScanState(PAGES.CAMERA);
-  };
-  
-  // 페이지별 Content 렌더링
-  const renderScanFlowContent = () => {
-      switch (scanState) {
-          case PAGES.CAMERA:
-              return <CameraInput onScan={handleScan} />;
-          case PAGES.LOADING:
-              return (
-                <div className="flex flex-col items-center justify-center p-6 space-y-4 h-full bg-gray-900 text-white">
-                    <svg className="animate-spin h-10 w-10 text-violet-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-xl font-semibold text-gray-300 font-sans-kr">성분 분석 중...</p>
-                    <p className="text-sm text-gray-500 font-sans-kr">AI 모델이 위험도를 분석하고 있습니다.</p>
-                </div>
-              );
-          case PAGES.RESULT:
-              return <ResultDisplay result={scanResult} onRestart={handleRestart} />;
-          default:
-              return <div className="text-center p-6 text-red-500 font-sans-kr">스캔 오류</div>;
-      }
+  // --- 렌더링 ---
+  if (!currentUser) {
+    return <AuthView onLogin={handleAuth} />;
   }
-  
+
   const renderContent = () => {
-    // isAuthReady가 항상 true이므로, 바로 컨텐츠를 렌더링합니다.
     switch (currentPage) {
       case PAGES.HOME:
-        return <HomeView onNavigate={setCurrentPage} />;
+        return (
+          <div className="p-8 space-y-8 bg-gray-900 text-white min-h-[calc(100vh-100px)]">
+            <div className="bg-gradient-to-br from-violet-600 to-fuchsia-600 p-6 rounded-2xl shadow-lg">
+              <h1 className="text-2xl font-bold mb-2">반갑습니다, {currentUser.name}님!</h1>
+              <p className="text-violet-100 text-sm">현재 {userAllergies.length}개의 알레르기를 관리 중입니다.</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => setCurrentPage(PAGES.SCAN)} className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-violet-500 transition flex flex-col items-center shadow-lg">
+                <span className="text-4xl mb-2">📸</span>
+                <span className="font-bold">성분 스캔</span>
+              </button>
+              <button onClick={() => setCurrentPage(PAGES.HISTORY)} className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:border-violet-500 transition flex flex-col items-center shadow-lg">
+                <span className="text-4xl mb-2">📂</span>
+                <span className="font-bold">분석 기록</span>
+              </button>
+            </div>
+
+            {/* 홈 화면 위젯: 최근 기록 미리보기 */}
+            <div className="mt-4">
+              <h3 className="text-lg font-bold text-gray-400 mb-2">최근 활동</h3>
+              {history.length > 0 ? (
+                <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
+                   <span>{history[0].message}</span>
+                   <span className="text-xs text-gray-500">방금 전</span>
+                </div>
+              ) : (
+                <p className="text-gray-600 text-sm">아직 기록이 없습니다.</p>
+              )}
+            </div>
+          </div>
+        );
       case PAGES.SCAN:
-        return renderScanFlowContent();
+        switch (scanState) {
+          case PAGES.CAMERA: return <CameraInput onScan={processScan} />;
+          case PAGES.LOADING: return <div className="text-white text-center mt-20 text-xl font-bold animate-pulse">AI 분석중... 🔄</div>;
+          case PAGES.RESULT: return <ResultDisplay result={scanResult} onRestart={() => { setScanResult(null); setScanState(PAGES.CAMERA); }} />;
+        }
+        break;
+      case PAGES.HISTORY:
+        return <HistoryView history={history} />;
       case PAGES.ALLERGIES:
-        return (
-          <AllergySelector
-            selectedAllergies={userAllergies}
-            onSelectionChange={handleAllergySelectionChange}
-            onContinue={handleAllergySaveAndContinue}
-          />
-        );
+        return <AllergySelector selectedAllergies={userAllergies} onSelectionChange={setUserAllergies} onSave={() => setCurrentPage(PAGES.HOME)} />;
       case PAGES.INFO:
-          return <InfoView />;
-      default:
         return (
-          <div className="text-center p-6 text-red-500 font-sans-kr">페이지를 찾을 수 없습니다.</div>
+          <div className="p-8 text-white text-center space-y-6">
+            <h1 className="text-2xl font-bold">내 정보 (My Page)</h1>
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+              <div className="w-20 h-20 bg-violet-500 rounded-full mx-auto flex items-center justify-center text-3xl font-bold mb-4">
+                {currentUser.name[0]}
+              </div>
+              <p className="text-xl font-bold">{currentUser.name}</p>
+              <p className="text-gray-400 text-sm">{currentUser.email}</p>
+            </div>
+            
+            <div className="space-y-3">
+              <button onClick={() => setCurrentPage(PAGES.ALLERGIES)} className="w-full py-3 bg-gray-800 rounded-lg text-sm font-bold border border-gray-700">
+                알레르기 설정 변경
+              </button>
+              <button onClick={handleLogout} className="w-full py-3 bg-red-900/30 text-red-400 border border-red-900 rounded-lg text-sm font-bold">
+                로그아웃
+              </button>
+            </div>
+          </div>
         );
+      default: return <div>Error</div>;
     }
   };
 
-  const finalNavItems = [
-    { page: PAGES.HOME, icon: '🏠', title: '홈' },
-    { page: PAGES.SCAN, icon: '🔍', title: 'AI 스캔' },
-    { page: PAGES.ALLERGIES, icon: '⚙️', title: '설정' }, 
-    { page: PAGES.INFO, icon: '💡', title: '정보' },
+  const navItems = [
+    { page: PAGES.HOME, icon: '🏠', label: '홈' },
+    { page: PAGES.SCAN, icon: '🔍', label: '스캔' },
+    { page: PAGES.HISTORY, icon: '📂', label: '기록' },
+    { page: PAGES.ALLERGIES, icon: '⚙️', label: '설정' },
+    { page: PAGES.INFO, icon: '👤', label: 'MY' },
   ];
 
-  // The main UI structure for a mobile-like web app
   return (
-    // 전체 배경은 다크 테마
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-0" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-      {/* Pretendard 폰트를 로드하는 CSS 추가 */}
-      <style>
-        {`
-          @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-          
-          /* 전체 레이아웃을 웹사이트처럼 넓게 펼칩니다. */
-          body {
-            background-color: #111827; /* Tailwind gray-900 */
-          }
-        `}
-      </style>
+    <div className="min-h-screen bg-gray-900 flex justify-center font-sans-kr">
+      <style>{`@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css'); .font-sans-kr { font-family: Pretendard, sans-serif; }`}</style>
       
-      {/* 웹사이트 전체를 감싸는 컨테이너 */}
-      <div className="w-full max-w-7xl min-h-screen bg-gray-900 shadow-2xl flex flex-col">
-        {/* Top Header/Navigation Bar (Global Nav) */}
-        <nav className="w-full bg-black/50 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
-            <div className="max-w-6xl mx-auto flex justify-between items-center py-4 px-6">
-                {/* 왼쪽 상단 AI-Foodie 버튼 클릭 시 홈화면으로 이동 */}
-                <h1 
-                    className="text-2xl font-extrabold text-violet-400 font-sans-kr cursor-pointer hover:text-white transition duration-150"
-                    onClick={() => setCurrentPage(PAGES.HOME)}
-                >
-                    AI-Foodie <span className="text-gray-600 text-sm font-medium ml-2">v1.0</span>
-                </h1>
-                
-                {/* Desktop Navigation Links (AI 스캔, 설정 제거) */}
-                <div className="hidden md:flex space-x-6">
-                    {/* 상단바에서 'AI 스캔'과 '설정' 링크를 제거하고 '홈'과 '정보'만 남깁니다. */}
-                    <a
-                        href="#"
-                        onClick={(e) => { e.preventDefault(); setCurrentPage(PAGES.HOME); }}
-                        className={`text-sm font-semibold transition duration-150 py-1 px-2 rounded-lg font-sans-kr
-                            ${currentPage === PAGES.HOME 
-                                ? 'text-white bg-violet-700/50' 
-                                : 'text-gray-300 hover:text-violet-400 hover:bg-gray-800'}`}
-                    >
-                        홈
-                    </a>
-                    <a
-                        href="#"
-                        onClick={(e) => { e.preventDefault(); setCurrentPage(PAGES.INFO); }}
-                        className={`text-sm font-semibold transition duration-150 py-1 px-2 rounded-lg font-sans-kr
-                            ${currentPage === PAGES.INFO 
-                                ? 'text-white bg-violet-700/50' 
-                                : 'text-gray-300 hover:text-violet-400 hover:bg-gray-800'}`}
-                    >
-                        정보
-                    </a>
-                </div>
-                
-                {/* 상단 버튼은 이미 제거되었습니다. */}
-            </div>
-        </nav>
-        
-        {/* Content Area (Main View) */}
-        <main className="flex-grow flex flex-col justify-start w-full mx-auto">
+      <div className="w-full max-w-lg bg-gray-900 shadow-2xl flex flex-col border-x border-gray-800 relative">
+        {currentUser && (
+          <nav className="w-full bg-black/50 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50 py-4 px-6 flex justify-between items-center">
+            <span className="text-violet-400 font-extrabold text-xl cursor-pointer" onClick={() => setCurrentPage(PAGES.HOME)}>AI-Foodie</span>
+            <span className="text-xs text-gray-400">{currentUser.name}님</span>
+          </nav>
+        )}
+
+        <main className="flex-grow">
           {renderContent()}
         </main>
-        
-        {/* Mobile Footer/Bottom Navigation (Hidden on Desktop) */}
-        <footer className="md:hidden flex justify-around border-t border-gray-800 bg-gray-900 sticky bottom-0 z-10">
-            {finalNavItems.map(item => (
-                <button
-                    key={item.page}
-                    onClick={() => setCurrentPage(item.page)}
-                    className={`py-2 px-4 flex flex-col items-center text-xs font-semibold transition duration-150 font-sans-kr
-                        ${currentPage === item.page ? 'text-violet-400' : 'text-gray-500 hover:text-violet-300'}`}
-                >
-                    <span className="text-xl mb-1">{item.icon}</span>
-                    {item.title}
-                </button>
+
+        {currentUser && (
+          <footer className="bg-gray-900 border-t border-gray-800 sticky bottom-0 z-10 flex justify-around py-3">
+            {navItems.map(item => (
+              <button
+                key={item.page}
+                onClick={() => setCurrentPage(item.page)}
+                className={`flex flex-col items-center text-xs font-bold transition ${currentPage === item.page ? 'text-violet-400' : 'text-gray-600'}`}
+              >
+                <span className="text-xl mb-1">{item.icon}</span>
+                {item.label}
+              </button>
             ))}
-        </footer>
-        
+          </footer>
+        )}
       </div>
     </div>
   );
